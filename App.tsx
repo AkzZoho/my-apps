@@ -55,6 +55,184 @@ const AVATAR_COLORS = ["#0e7490", "#7e22ce", "#166534", "#1d4ed8", "#be185d", "#
 const MAX_W = Platform.OS === "web" ? 680 : undefined;
 const IS_IOS = Platform.OS === "ios";
 
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+
+const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function daysInMonth(month: number, year: number) {
+  return new Date(year, month, 0).getDate();
+}
+
+function formatDateDisplay(iso: string) {
+  if (!iso || !iso.match(/^\d{4}-\d{2}-\d{2}$/)) return "";
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${String(d).padStart(2, "0")} ${MONTHS_SHORT[m - 1]} ${y}`;
+}
+
+// ─── Push notification helpers (web only) ────────────────────────────────────
+
+function requestPushPermission() {
+  if (Platform.OS !== "web" || typeof Notification === "undefined") return;
+  if (Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+function firePushNotification(title: string, body: string) {
+  if (Platform.OS !== "web" || typeof Notification === "undefined") return;
+  if (Notification.permission !== "granted") return;
+  try { new Notification(title, { body, silent: false }); } catch {}
+}
+
+// ─── Date picker column ───────────────────────────────────────────────────────
+
+const COL_ITEM_H = 48;
+
+function ColPicker({ items, selected, onSelect, renderLabel }: {
+  items: number[]; selected: number;
+  onSelect: (v: number) => void; renderLabel: (v: number) => string;
+}) {
+  const scrollRef = useRef<ScrollView>(null);
+  const didMount = useRef(false);
+
+  useEffect(() => {
+    const idx = items.indexOf(selected);
+    if (idx < 0) return;
+    const delay = didMount.current ? 0 : 80;
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: idx * COL_ITEM_H, animated: didMount.current });
+    }, delay);
+    didMount.current = true;
+  }, [selected, items.length]); // re-scroll when items length changes (day list after month change)
+
+  return (
+    <View style={{ flex: 1, position: "relative" }}>
+      {/* centre-row highlight */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute", top: COL_ITEM_H * 2, left: 3, right: 3,
+          height: COL_ITEM_H, borderRadius: 10,
+          backgroundColor: C.primaryLight, borderWidth: 1, borderColor: C.primaryMid,
+        }}
+      />
+      <ScrollView
+        ref={scrollRef}
+        style={{ height: COL_ITEM_H * 5 }}
+        contentContainerStyle={{ paddingVertical: COL_ITEM_H * 2 }}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={COL_ITEM_H}
+        decelerationRate="fast"
+        onMomentumScrollEnd={(e) => {
+          const idx = Math.round(e.nativeEvent.contentOffset.y / COL_ITEM_H);
+          const clamped = Math.max(0, Math.min(idx, items.length - 1));
+          onSelect(items[clamped]);
+        }}
+        onScrollEndDrag={(e) => {
+          const idx = Math.round(e.nativeEvent.contentOffset.y / COL_ITEM_H);
+          const clamped = Math.max(0, Math.min(idx, items.length - 1));
+          onSelect(items[clamped]);
+        }}
+      >
+        {items.map((v) => (
+          <TouchableOpacity
+            key={v}
+            style={{ height: COL_ITEM_H, alignItems: "center", justifyContent: "center" }}
+            onPress={() => onSelect(v)}
+            activeOpacity={0.7}
+          >
+            <Text style={[
+              { color: C.textDim, fontSize: 16 },
+              v === selected && { color: C.primary, fontSize: 18, fontWeight: "700" },
+            ]}>
+              {renderLabel(v)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Date picker modal ────────────────────────────────────────────────────────
+
+function DatePickerModal({ visible, value, onChange, onClose }: {
+  visible: boolean; value: string; onChange: (d: string) => void; onClose: () => void;
+}) {
+  const now = new Date();
+  const cy = now.getFullYear();
+
+  const parseISO = (s: string) => {
+    if (s?.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [y, m, d] = s.split("-").map(Number);
+      return { y, m, d };
+    }
+    return { y: cy, m: now.getMonth() + 1, d: now.getDate() };
+  };
+
+  const init = parseISO(value);
+  const [selYear, setSelYear]   = useState(init.y);
+  const [selMonth, setSelMonth] = useState(init.m);
+  const [selDay, setSelDay]     = useState(init.d);
+
+  // Reset when opened
+  useEffect(() => {
+    if (visible) { const p = parseISO(value); setSelYear(p.y); setSelMonth(p.m); setSelDay(p.d); }
+  }, [visible]);
+
+  const maxDay = daysInMonth(selMonth, selYear);
+  const yearList  = useMemo(() => Array.from({ length: 6 }, (_, i) => cy + i), [cy]);
+  const monthList = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
+  const dayList   = useMemo(() => Array.from({ length: maxDay }, (_, i) => i + 1), [maxDay]);
+
+  useEffect(() => { if (selDay > maxDay) setSelDay(maxDay); }, [maxDay]);
+
+  const preview = `${String(Math.min(selDay, maxDay)).padStart(2, "0")} ${MONTHS_SHORT[selMonth - 1]} ${selYear}`;
+
+  const confirm = () => {
+    const d = String(Math.min(selDay, maxDay)).padStart(2, "0");
+    const m = String(selMonth).padStart(2, "0");
+    onChange(`${selYear}-${m}-${d}`);
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={s.overlay}>
+        <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />
+        <View style={s.sheet}>
+          <View style={s.handle} />
+          <Text style={s.sheetTitle}>Select Start Date</Text>
+
+          <View style={{ flexDirection: "row", marginBottom: 6 }}>
+            {["DAY", "MONTH", "YEAR"].map((lbl) => (
+              <Text key={lbl} style={{ flex: 1, textAlign: "center", color: C.textMuted, fontSize: 11, fontWeight: "700", letterSpacing: 0.5 }}>
+                {lbl}
+              </Text>
+            ))}
+          </View>
+
+          <View style={{ flexDirection: "row", gap: 6 }}>
+            <ColPicker items={dayList}   selected={selDay}   onSelect={setSelDay}   renderLabel={(v) => String(v).padStart(2, "0")} />
+            <ColPicker items={monthList} selected={selMonth} onSelect={setSelMonth} renderLabel={(v) => MONTHS_SHORT[v - 1]} />
+            <ColPicker items={yearList}  selected={selYear}  onSelect={setSelYear}  renderLabel={(v) => String(v)} />
+          </View>
+
+          <View style={s.datePreviewRow}>
+            <Text style={s.datePreviewLabel}>Selected</Text>
+            <Text style={s.datePreviewValue}>{preview}</Text>
+          </View>
+
+          <Btn label="Confirm Date" onPress={confirm} size="lg" full />
+          <View style={{ height: 10 }} />
+          <Btn label="Cancel" variant="outline" onPress={onClose} size="lg" full />
+          <View style={{ height: 20 }} />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
 function Avatar({ name, size = 36 }: { name: string; size?: number }) {
@@ -451,125 +629,197 @@ function ChatTabView({ chatMessages, currentUser, chatText, onChangeText, onSend
   );
 }
 
+type NotifRule = { id: string; channel: "email" | "in_app"; beforeDays: string; emails: string };
+
 type KuriTabProps = {
   myKuris: KuriPlan[];
   members: Member[];
+  currentUserEmail: string;
   kuriName: string; setKuriName: (v: string) => void;
   kuriAmount: string; setKuriAmount: (v: string) => void;
   kuriDate: string; setKuriDate: (v: string) => void;
   kuriParticipantIds: string[];
   onOpenPicker: () => void;
-  notifRules: Array<{ id: string; channel: "email" | "in_app"; beforeDays: string; emails: string }>;
-  setNotifRules: React.Dispatch<React.SetStateAction<Array<{ id: string; channel: "email" | "in_app"; beforeDays: string; emails: string }>>>;
+  notifRules: NotifRule[];
+  setNotifRules: React.Dispatch<React.SetStateAction<NotifRule[]>>;
   onCreateKuri: () => void;
 };
 
 function KuriTabView({
-  myKuris, kuriName, setKuriName, kuriAmount, setKuriAmount, kuriDate, setKuriDate,
-  kuriParticipantIds, onOpenPicker, notifRules, setNotifRules, onCreateKuri,
+  myKuris, currentUserEmail, kuriName, setKuriName, kuriAmount, setKuriAmount,
+  kuriDate, setKuriDate, kuriParticipantIds, onOpenPicker,
+  notifRules, setNotifRules, onCreateKuri,
 }: KuriTabProps) {
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const dateDisplay = formatDateDisplay(kuriDate);
+
+  const step = (ruleId: string, delta: number) =>
+    setNotifRules((p) => p.map((x) =>
+      x.id === ruleId ? { ...x, beforeDays: String(Math.max(0, Math.min(30, Number(x.beforeDays || "0") + delta))) } : x
+    ));
+
   return (
-    <ScrollView
-      style={s.tabContent}
-      contentContainerStyle={{ paddingBottom: 24 }}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      {myKuris.length > 0 && (
-        <Panel title="Your Kuri Plans" noPad>
-          {myKuris.map((k) => (
-            <View key={k.id} style={s.kuriCard}>
-              <View style={s.kuriCardTop}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.kuriCardName}>{k.name}</Text>
-                  <Text style={s.kuriCardDate}>Starts {k.startDate}</Text>
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={s.tabContent}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {myKuris.length > 0 && (
+          <Panel title="Your Kuri Plans" noPad>
+            {myKuris.map((k) => (
+              <View key={k.id} style={s.kuriCard}>
+                <View style={s.kuriCardTop}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.kuriCardName}>{k.name}</Text>
+                    <Text style={s.kuriCardDate}>Starts {formatDateDisplay(k.startDate) || k.startDate}</Text>
+                  </View>
+                  <View style={s.kuriAmtBox}>
+                    <Text style={s.kuriAmtVal}>₹{k.contributionAmount.toLocaleString()}</Text>
+                    <Text style={s.kuriAmtLbl}>per month</Text>
+                  </View>
                 </View>
-                <View style={s.kuriAmtBox}>
-                  <Text style={s.kuriAmtVal}>₹{k.contributionAmount.toLocaleString()}</Text>
-                  <Text style={s.kuriAmtLbl}>per month</Text>
+                <View style={s.kuriCardRow}>
+                  <Text style={s.kuriMeta}>Participants</Text>
+                  <Text style={s.kuriVal}>{k.participantUserIds.length} people</Text>
+                </View>
+                <View style={s.kuriCardRow}>
+                  <Text style={s.kuriMeta}>Currency</Text>
+                  <Text style={s.kuriVal}>{k.currency}</Text>
                 </View>
               </View>
-              <View style={s.kuriCardRow}>
-                <Text style={s.kuriMeta}>Participants</Text>
-                <Text style={s.kuriVal}>{k.participantUserIds.length} people</Text>
+            ))}
+          </Panel>
+        )}
+
+        <Panel title="Create Kuri Plan" subtitle="Set up a new savings rotation">
+          <Field label="Plan Name" value={kuriName} onChangeText={setKuriName} placeholder="e.g. Monthly Circle" />
+          <Field label="Contribution (₹ per month)" value={kuriAmount} onChangeText={setKuriAmount} placeholder="5000" keyboardType="numeric" />
+
+          {/* Date picker trigger */}
+          <Text style={s.label}>Start Date</Text>
+          <TouchableOpacity style={s.dateTrigger} onPress={() => setDatePickerOpen(true)} activeOpacity={0.7}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text style={{ fontSize: 20 }}>📅</Text>
+              <Text style={dateDisplay ? s.dateTriggerActive : s.dateTriggerPlaceholder}>
+                {dateDisplay || "Select start date"}
+              </Text>
+            </View>
+            <Text style={{ color: C.primary, fontSize: 13, fontWeight: "600" }}>
+              {dateDisplay ? "Change" : "Pick"}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Participants */}
+          <Text style={s.label}>Participants</Text>
+          <TouchableOpacity style={s.pickerTrigger} onPress={onOpenPicker} activeOpacity={0.7}>
+            <Text style={kuriParticipantIds.length > 0 ? s.pickerTriggerActive : s.pickerTriggerPlaceholder}>
+              {kuriParticipantIds.length > 0 ? `${kuriParticipantIds.length} selected` : "Choose participants"}
+            </Text>
+            <Text style={{ color: C.primary, fontSize: 18 }}>›</Text>
+          </TouchableOpacity>
+
+          {/* Notification rules */}
+          <View style={s.ruleHeader}>
+            <Text style={s.label}>Notification Rules</Text>
+            <TouchableOpacity
+              style={s.addRuleBtn}
+              activeOpacity={0.7}
+              onPress={() => setNotifRules((p) => [...p, { id: `r${Date.now()}`, channel: "in_app", beforeDays: "2", emails: "" }])}
+            >
+              <Text style={s.addRuleBtnText}>+ Add Rule</Text>
+            </TouchableOpacity>
+          </View>
+
+          {notifRules.map((r) => (
+            <View key={r.id} style={s.ruleCard}>
+              {/* Channel chips */}
+              <View style={s.ruleChipRow}>
+                {([
+                  { val: "in_app", label: "📱 In-App" },
+                  { val: "email",  label: "📧 Email"  },
+                ] as const).map((opt) => (
+                  <TouchableOpacity
+                    key={opt.val}
+                    style={[s.ruleChip, r.channel === opt.val && s.ruleChipOn]}
+                    onPress={() => setNotifRules((p) => p.map((x) => x.id === r.id ? { ...x, channel: opt.val } : x))}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[s.ruleChipText, r.channel === opt.val && s.ruleChipTextOn]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <View style={s.kuriCardRow}>
-                <Text style={s.kuriMeta}>Currency</Text>
-                <Text style={s.kuriVal}>{k.currency}</Text>
+
+              {/* Days stepper */}
+              <View style={s.ruleDaysRow}>
+                <Text style={s.ruleDaysText}>Notify </Text>
+                <TouchableOpacity style={s.stepBtn} onPress={() => step(r.id, -1)} activeOpacity={0.7}>
+                  <Text style={s.stepBtnText}>−</Text>
+                </TouchableOpacity>
+                <View style={s.stepValBox}>
+                  <Text style={s.stepValText}>{r.beforeDays || "0"}</Text>
+                </View>
+                <TouchableOpacity style={s.stepBtn} onPress={() => step(r.id, 1)} activeOpacity={0.7}>
+                  <Text style={s.stepBtnText}>+</Text>
+                </TouchableOpacity>
+                <Text style={s.ruleDaysText}> days before</Text>
               </View>
+
+              {/* What this rule does */}
+              <View style={s.ruleInfoBox}>
+                {r.channel === "in_app" ? (
+                  <Text style={s.ruleInfoText}>🔔 Notification appears in your bell icon</Text>
+                ) : (
+                  <Text style={s.ruleInfoText}>📧 Email sent to: <Text style={{ color: C.text, fontWeight: "700" }}>{currentUserEmail}</Text></Text>
+                )}
+              </View>
+
+              {/* Extra recipients if email */}
+              {r.channel === "email" && (
+                <View style={{ marginTop: 10 }}>
+                  <Text style={[s.label, { fontSize: 12, marginBottom: 5 }]}>
+                    Additional recipients{" "}
+                    <Text style={{ fontWeight: "400", color: C.textDim }}>(optional)</Text>
+                  </Text>
+                  <TextInput
+                    style={s.input}
+                    value={r.emails}
+                    onChangeText={(v) => setNotifRules((p) => p.map((x) => x.id === r.id ? { ...x, emails: v } : x))}
+                    placeholder="other@email.com, another@email.com"
+                    placeholderTextColor={C.textDim}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+              )}
+
+              {/* Remove rule */}
+              <TouchableOpacity
+                style={s.ruleRemoveBtn}
+                onPress={() => setNotifRules((p) => p.filter((x) => x.id !== r.id))}
+                activeOpacity={0.7}
+              >
+                <Text style={s.ruleRemoveText}>✕ Remove rule</Text>
+              </TouchableOpacity>
             </View>
           ))}
+
+          <View style={{ height: 6 }} />
+          <Btn label="Create Kuri Plan" onPress={onCreateKuri} size="lg" full />
         </Panel>
-      )}
+      </ScrollView>
 
-      <Panel title="Create Kuri Plan" subtitle="Set up a new savings rotation">
-        <Field label="Plan Name" value={kuriName} onChangeText={setKuriName} placeholder="e.g. Monthly Circle" />
-        <Field label="Contribution (₹ per month)" value={kuriAmount} onChangeText={setKuriAmount} placeholder="5000" keyboardType="numeric" />
-        <Field label="Start Date (YYYY-MM-DD)" value={kuriDate} onChangeText={setKuriDate} placeholder={new Date().toISOString().slice(0, 10)} />
-
-        <Text style={s.label}>Participants</Text>
-        <TouchableOpacity style={s.pickerTrigger} onPress={onOpenPicker} activeOpacity={0.7}>
-          <Text style={kuriParticipantIds.length > 0 ? s.pickerTriggerActive : s.pickerTriggerPlaceholder}>
-            {kuriParticipantIds.length > 0 ? `${kuriParticipantIds.length} selected` : "Choose participants"}
-          </Text>
-          <Text style={{ color: C.primary, fontSize: 18 }}>›</Text>
-        </TouchableOpacity>
-
-        <View style={s.ruleHeader}>
-          <Text style={s.label}>Notification Rules</Text>
-          <TouchableOpacity
-            style={s.addRuleBtn}
-            activeOpacity={0.7}
-            onPress={() => setNotifRules((p) => [...p, { id: `r${Date.now()}`, channel: "in_app", beforeDays: "1", emails: "" }])}
-          >
-            <Text style={s.addRuleBtnText}>+ Add Rule</Text>
-          </TouchableOpacity>
-        </View>
-
-        {notifRules.map((r) => (
-          <View key={r.id} style={s.ruleCard}>
-            <View style={s.ruleRow}>
-              <TouchableOpacity
-                style={[s.ruleChannelBtn, { flex: 1 }]}
-                activeOpacity={0.7}
-                onPress={() => setNotifRules((p) => p.map((x) => x.id === r.id ? { ...x, channel: x.channel === "email" ? "in_app" : "email" } : x))}
-              >
-                <Text style={s.ruleChannelText}>{r.channel === "email" ? "📧 Email" : "📱 In-App"}</Text>
-              </TouchableOpacity>
-              <View style={{ width: 90, marginLeft: 10 }}>
-                <Text style={[s.label, { marginBottom: 4 }]}>Days Before</Text>
-                <TextInput
-                  style={s.input}
-                  value={r.beforeDays}
-                  onChangeText={(v) => setNotifRules((p) => p.map((x) => x.id === r.id ? { ...x, beforeDays: v } : x))}
-                  keyboardType="numeric"
-                  placeholderTextColor={C.textDim}
-                />
-              </View>
-              <TouchableOpacity
-                style={s.ruleDelBtn}
-                activeOpacity={0.7}
-                onPress={() => setNotifRules((p) => p.filter((x) => x.id !== r.id))}
-              >
-                <Text style={s.ruleDelText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            {r.channel === "email" && (
-              <Field
-                label="Email Recipients (comma-separated)"
-                value={r.emails}
-                onChangeText={(v) => setNotifRules((p) => p.map((x) => x.id === r.id ? { ...x, emails: v } : x))}
-                placeholder="a@b.com, c@d.com"
-                keyboardType="email-address"
-              />
-            )}
-          </View>
-        ))}
-
-        <View style={{ height: 6 }} />
-        <Btn label="Create Kuri Plan" onPress={onCreateKuri} size="lg" full />
-      </Panel>
-    </ScrollView>
+      <DatePickerModal
+        visible={datePickerOpen}
+        value={kuriDate}
+        onChange={setKuriDate}
+        onClose={() => setDatePickerOpen(false)}
+      />
+    </View>
   );
 }
 
@@ -596,6 +846,10 @@ export default function App() {
   const [chatText, setChatText] = useState("");
   const chatScrollRef = useRef<ScrollView>(null);
   const chatFocusedRef = useRef(false);
+
+  // Push notification tracking
+  const seenNotifIdsRef = useRef(new Set<string>());
+  const hasSeededPushRef = useRef(false);
 
   // Kuri form
   const [kuriName, setKuriName] = useState("");
@@ -648,8 +902,11 @@ export default function App() {
     if (typeof window === "undefined") return;
     if (currentUser) {
       window.localStorage.setItem("kuri_session_user", JSON.stringify(currentUser));
+      requestPushPermission();
     } else {
       window.localStorage.removeItem("kuri_session_user");
+      hasSeededPushRef.current = false;
+      seenNotifIdsRef.current.clear();
     }
   }, [currentUser]);
 
@@ -718,6 +975,23 @@ export default function App() {
   }, [currentUser, data.notifications]);
 
   const unreadCount = useMemo(() => myNotifs.filter((n) => !n.read).length, [myNotifs]);
+
+  // Fire browser push notifications for newly arrived unread notifications
+  useEffect(() => {
+    if (!currentUser) return;
+    const unread = myNotifs.filter((n) => !n.read);
+    if (!hasSeededPushRef.current) {
+      // First load — seed without pushing so we don't spam on open
+      unread.forEach((n) => seenNotifIdsRef.current.add(n.id));
+      hasSeededPushRef.current = true;
+      return;
+    }
+    const fresh = unread.filter((n) => !seenNotifIdsRef.current.has(n.id));
+    fresh.forEach((n) => {
+      firePushNotification(n.title, n.message.replace(/ref:.*/, "").trim());
+      seenNotifIdsRef.current.add(n.id);
+    });
+  }, [myNotifs, currentUser]);
 
   const pendingInvites = useMemo<Invitation[]>(() => {
     if (!activeCommittee) return [];
@@ -1045,6 +1319,7 @@ export default function App() {
           <KuriTabView
             myKuris={myKuris}
             members={members}
+            currentUserEmail={currentUser.email}
             kuriName={kuriName} setKuriName={setKuriName}
             kuriAmount={kuriAmount} setKuriAmount={setKuriAmount}
             kuriDate={kuriDate} setKuriDate={setKuriDate}
@@ -1341,10 +1616,38 @@ const s = StyleSheet.create({
   pickerTrigger: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.inputBg, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 14 },
   pickerTriggerPlaceholder: { color: C.textDim, fontSize: 16 },
   pickerTriggerActive: { color: C.text, fontSize: 16, fontWeight: "600" },
+
+  // Date picker trigger
+  dateTrigger: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.inputBg, borderRadius: 10, paddingVertical: 13, paddingHorizontal: 14, marginBottom: 14 },
+  dateTriggerPlaceholder: { color: C.textDim, fontSize: 16 },
+  dateTriggerActive: { color: C.text, fontSize: 16, fontWeight: "600" },
+  datePreviewRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: C.inputBg, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14, marginTop: 12, marginBottom: 16 },
+  datePreviewLabel: { color: C.textMuted, fontSize: 13 },
+  datePreviewValue: { color: C.primary, fontSize: 18, fontWeight: "800" },
+
   ruleHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   addRuleBtn: { backgroundColor: C.blueDark, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
   addRuleBtnText: { color: C.blueFg, fontSize: 12, fontWeight: "700" },
-  ruleCard: { backgroundColor: C.inputBg, borderRadius: 10, borderWidth: 1, borderColor: C.borderStrong, padding: 12, marginBottom: 8 },
+
+  // Redesigned notification rule card
+  ruleCard: { backgroundColor: C.inputBg, borderRadius: 12, borderWidth: 1, borderColor: C.borderStrong, padding: 14, marginBottom: 10 },
+  ruleChipRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  ruleChip: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: C.borderStrong, alignItems: "center", backgroundColor: C.bg },
+  ruleChipOn: { backgroundColor: C.primaryLight, borderColor: C.primary },
+  ruleChipText: { color: C.textMuted, fontSize: 14, fontWeight: "600" },
+  ruleChipTextOn: { color: C.primary, fontWeight: "700" },
+  ruleDaysRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  ruleDaysText: { color: C.textSub, fontSize: 14 },
+  stepBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: C.border, alignItems: "center", justifyContent: "center" },
+  stepBtnText: { color: C.text, fontSize: 20, fontWeight: "700", lineHeight: 22 },
+  stepValBox: { minWidth: 44, alignItems: "center", paddingHorizontal: 6 },
+  stepValText: { color: C.primary, fontSize: 22, fontWeight: "900" },
+  ruleInfoBox: { backgroundColor: C.surface, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 4 },
+  ruleInfoText: { color: C.textMuted, fontSize: 13, lineHeight: 18 },
+  ruleRemoveBtn: { marginTop: 10, alignSelf: "flex-start" },
+  ruleRemoveText: { color: C.danger, fontSize: 13, fontWeight: "600" },
+
+  // Old rule styles kept for safety
   ruleRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
   ruleChannelBtn: { borderWidth: 1, borderColor: C.borderStrong, borderRadius: 8, paddingVertical: 12, paddingHorizontal: 12 },
   ruleChannelText: { color: C.text, fontWeight: "600" },
