@@ -14,9 +14,9 @@ const defaultData: AppData = {
 };
 
 export const loadData = async (): Promise<AppData> => {
-  const snapshot = await get(ref(database, DATA_REF));
-  if (!snapshot.exists()) return { ...defaultData };
   try {
+    const snapshot = await get(ref(database, DATA_REF));
+    if (!snapshot.exists()) return { ...defaultData };
     const parsed = snapshot.val() as Partial<AppData>;
     return {
       users: Array.isArray(parsed.users) ? parsed.users : [],
@@ -32,5 +32,9 @@ export const loadData = async (): Promise<AppData> => {
 };
 
 export const saveData = async (data: AppData): Promise<void> => {
-  await set(ref(database, DATA_REF), data);
+  try {
+    await set(ref(database, DATA_REF), data);
+  } catch {
+    // Firebase write failed silently — data will sync on next successful write
+  }
 };

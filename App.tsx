@@ -247,9 +247,19 @@ export default function App() {
 
   const init = async () => {
     setLoading(true);
-    await kuriService.generateMonthlyInAppNotifications();
-    setData(await kuriService.getData());
-    setLoading(false);
+    try {
+      // 8-second timeout so a slow/failing Firebase never leaves a blank screen
+      const withTimeout = <T,>(p: Promise<T>, fallback: T) =>
+        Promise.race([p, new Promise<T>((res) => setTimeout(() => res(fallback), 8000))]);
+
+      await withTimeout(kuriService.generateMonthlyInAppNotifications(), undefined);
+      const loaded = await withTimeout(kuriService.getData(), emptyData);
+      setData(loaded);
+    } catch {
+      // Firebase unavailable — app still works with empty local state
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Auto-refresh chat every 4 seconds when on chat tab and not typing
@@ -259,7 +269,9 @@ export default function App() {
     return () => clearInterval(id);
   }, [activeTab, activeCommittee, refresh, chatFocused]);
 
-  const refresh = useCallback(async () => { setData(await kuriService.getData()); }, []);
+  const refresh = useCallback(async () => {
+    try { setData(await kuriService.getData()); } catch {}
+  }, []);
 
   const activeCommittee = useMemo<Group | undefined>(() => {
     if (!currentUser) return undefined;
