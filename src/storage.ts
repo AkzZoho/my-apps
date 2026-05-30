@@ -1,7 +1,8 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ref, get, set } from "firebase/database";
+import { database } from "./firebase";
 import { AppData } from "./types";
 
-const APP_STORAGE_KEY = "project_kuri_data_v1";
+const DATA_REF = "appData";
 
 const defaultData: AppData = {
   users: [],
@@ -9,27 +10,27 @@ const defaultData: AppData = {
   invitations: [],
   kuris: [],
   chatMessages: [],
-  notifications: []
+  notifications: [],
 };
 
 export const loadData = async (): Promise<AppData> => {
-  const raw = await AsyncStorage.getItem(APP_STORAGE_KEY);
-  if (!raw) return defaultData;
+  const snapshot = await get(ref(database, DATA_REF));
+  if (!snapshot.exists()) return { ...defaultData };
   try {
-    const parsed = JSON.parse(raw) as Partial<AppData>;
+    const parsed = snapshot.val() as Partial<AppData>;
     return {
       users: Array.isArray(parsed.users) ? parsed.users : [],
       groups: Array.isArray(parsed.groups) ? parsed.groups : [],
       invitations: Array.isArray(parsed.invitations) ? parsed.invitations : [],
       kuris: Array.isArray(parsed.kuris) ? parsed.kuris : [],
       chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : [],
-      notifications: Array.isArray(parsed.notifications) ? parsed.notifications : []
+      notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
     };
   } catch {
-    return defaultData;
+    return { ...defaultData };
   }
 };
 
 export const saveData = async (data: AppData): Promise<void> => {
-  await AsyncStorage.setItem(APP_STORAGE_KEY, JSON.stringify(data));
+  await set(ref(database, DATA_REF), data);
 };
