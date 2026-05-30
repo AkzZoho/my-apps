@@ -1,0 +1,5 @@
+node_modules/
+.expo/
+web.log
+npm-debug.log*
+*.tmp
