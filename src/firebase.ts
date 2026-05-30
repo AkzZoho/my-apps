@@ -1,15 +1,14 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getDatabase } from "firebase/database";
 
-// Paste your Firebase config values here after creating the project
 const firebaseConfig = {
-  apiKey: "REPLACE_WITH_YOUR_API_KEY",
-  authDomain: "REPLACE_WITH_YOUR_AUTH_DOMAIN",
-  databaseURL: "REPLACE_WITH_YOUR_DATABASE_URL",
-  projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
-  storageBucket: "REPLACE_WITH_YOUR_STORAGE_BUCKET",
-  messagingSenderId: "REPLACE_WITH_YOUR_MESSAGING_SENDER_ID",
-  appId: "REPLACE_WITH_YOUR_APP_ID",
+  apiKey: "AIzaSyAozpBL9WdENY1fo7XBws-4d_n9H-417x8",
+  authDomain: "projectkuri-c284d.firebaseapp.com",
+  databaseURL: "https://projectkuri-c284d-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "projectkuri-c284d",
+  storageBucket: "projectkuri-c284d.firebasestorage.app",
+  messagingSenderId: "638627598431",
+  appId: "1:638627598431:web:c1201144f3399be0544bea",
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
