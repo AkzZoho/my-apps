@@ -51,6 +51,24 @@ export interface KuriPlan {
   };
   createdBy: string;
   createdAt: string;
+  upiId?: string;
+  upiQrBase64?: string;
+}
+
+export interface KuriPayment {
+  id: string;
+  kuriId: string;
+  userId: string;
+  month: string;           // "YYYY-MM"
+  transactionId: string;
+  amount: number;
+  receiptBase64?: string;  // data URL for image/PDF receipt
+  receiptFileName?: string;
+  status: "submitted" | "approved" | "rejected";
+  submittedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  notes?: string;
 }
 
 export interface ChatMessage {
@@ -78,6 +96,7 @@ export interface AppData {
   groups: Group[];
   invitations: Invitation[];
   kuris: KuriPlan[];
+  payments: KuriPayment[];
   chatMessages: ChatMessage[];
   notifications: InAppNotification[];
 }

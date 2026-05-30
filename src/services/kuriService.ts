@@ -1,5 +1,5 @@
 import { loadData, saveData } from "../storage";
-import { AppData, ChatMessage, Group, Invitation, KuriPlan, User } from "../types";
+import { AppData, ChatMessage, Group, Invitation, KuriPayment, KuriPlan, User } from "../types";
 import { makeId, makeInviteCode, nowIso } from "../utils";
 
 export class KuriService {
@@ -240,6 +240,101 @@ export class KuriService {
     group.members = group.members.filter((m) => m.userId !== memberUserId);
     await saveData(data);
     return group;
+  }
+
+  async deleteKuri(kuriId: string, actorUserId: string): Promise<void> {
+    const data = await loadData();
+    const kuri = data.kuris.find((k) => k.id === kuriId);
+    if (!kuri) throw new Error("Kuri plan not found.");
+    if (kuri.createdBy !== actorUserId) throw new Error("Only the creator can delete a Kuri plan.");
+    data.kuris = data.kuris.filter((k) => k.id !== kuriId);
+    data.payments = (data.payments || []).filter((p) => p.kuriId !== kuriId);
+    await saveData(data);
+  }
+
+  async updateKuriPaymentInfo(
+    kuriId: string,
+    actorUserId: string,
+    upiId: string,
+    upiQrBase64?: string
+  ): Promise<KuriPlan> {
+    const data = await loadData();
+    const kuri = data.kuris.find((k) => k.id === kuriId);
+    if (!kuri) throw new Error("Kuri plan not found.");
+    if (kuri.createdBy !== actorUserId) throw new Error("Only the creator can update payment info.");
+    kuri.upiId = upiId.trim();
+    if (upiQrBase64 !== undefined) kuri.upiQrBase64 = upiQrBase64;
+    await saveData(data);
+    return kuri;
+  }
+
+  async submitPayment(
+    kuriId: string,
+    userId: string,
+    month: string,
+    transactionId: string,
+    amount: number,
+    receiptBase64?: string,
+    receiptFileName?: string
+  ): Promise<KuriPayment> {
+    const data = await loadData();
+    const kuri = data.kuris.find((k) => k.id === kuriId);
+    if (!kuri) throw new Error("Kuri plan not found.");
+
+    if (!Array.isArray(data.payments)) data.payments = [];
+    const existing = data.payments.find(
+      (p) => p.kuriId === kuriId && p.userId === userId && p.month === month
+    );
+    if (existing && existing.status === "approved") {
+      throw new Error("Payment for this month is already approved.");
+    }
+
+    const payment: KuriPayment = {
+      id: makeId("pay"),
+      kuriId,
+      userId,
+      month,
+      transactionId: transactionId.trim().toUpperCase(),
+      amount,
+      receiptBase64,
+      receiptFileName,
+      status: "submitted",
+      submittedAt: nowIso(),
+    };
+
+    if (existing) {
+      // Replace rejected/previous submission with new one
+      data.payments = data.payments.filter(
+        (p) => !(p.kuriId === kuriId && p.userId === userId && p.month === month)
+      );
+    }
+    data.payments.push(payment);
+    await saveData(data);
+    return payment;
+  }
+
+  async reviewPayment(
+    paymentId: string,
+    actorUserId: string,
+    approved: boolean,
+    notes?: string
+  ): Promise<KuriPayment> {
+    const data = await loadData();
+    if (!Array.isArray(data.payments)) data.payments = [];
+    const payment = data.payments.find((p) => p.id === paymentId);
+    if (!payment) throw new Error("Payment not found.");
+
+    const kuri = data.kuris.find((k) => k.id === payment.kuriId);
+    if (!kuri) throw new Error("Kuri plan not found.");
+    if (kuri.createdBy !== actorUserId) throw new Error("Only the Kuri creator can review payments.");
+
+    payment.status = approved ? "approved" : "rejected";
+    payment.reviewedAt = nowIso();
+    payment.reviewedBy = actorUserId;
+    if (notes) payment.notes = notes.trim();
+
+    await saveData(data);
+    return payment;
   }
 
   async generateMonthlyInAppNotifications(today = new Date()) {

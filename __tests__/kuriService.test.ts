@@ -8,6 +8,7 @@ function makeStore(initial: Partial<AppData> = {}) {
     groups: [],
     invitations: [],
     kuris: [],
+    payments: [],
     chatMessages: [],
     notifications: [],
     ...initial,

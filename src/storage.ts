@@ -9,6 +9,7 @@ const defaultData: AppData = {
   groups: [],
   invitations: [],
   kuris: [],
+  payments: [],
   chatMessages: [],
   notifications: [],
 };
@@ -23,6 +24,7 @@ export const loadData = async (): Promise<AppData> => {
       groups: Array.isArray(parsed.groups) ? parsed.groups : [],
       invitations: Array.isArray(parsed.invitations) ? parsed.invitations : [],
       kuris: Array.isArray(parsed.kuris) ? parsed.kuris : [],
+      payments: Array.isArray(parsed.payments) ? parsed.payments : [],
       chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : [],
       notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
     };

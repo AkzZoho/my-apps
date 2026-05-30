@@ -7,6 +7,7 @@ const defaultEmpty: AppData = {
   groups: [],
   invitations: [],
   kuris: [],
+  payments: [],
   chatMessages: [],
   notifications: [],
 };

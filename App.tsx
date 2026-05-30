@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -15,10 +16,15 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { kuriService } from "./src/services/kuriService";
-import { AppData, ChatMessage, Group, Invitation, KuriPlan, User } from "./src/types";
+import { AppData, ChatMessage, Group, Invitation, KuriPayment, KuriPlan, User } from "./src/types";
+import {
+  AppLogo, IcoBell, IcoCalendar, IcoChat, IcoCheck, IcoCopy, IcoEdit,
+  IcoImage, IcoKuri, IcoCommittee, IcoMembers, IcoMore, IcoPlus, IcoQr,
+  IcoReceipt, IcoSend, IcoSignOut, IcoTrash, IcoUpload, IcoX,
+} from "./src/icons";
 
 const emptyData: AppData = {
-  users: [], groups: [], invitations: [], kuris: [], chatMessages: [], notifications: [],
+  users: [], groups: [], invitations: [], kuris: [], payments: [], chatMessages: [], notifications: [],
 };
 
 type AuthMode = "login" | "signup";
@@ -349,22 +355,23 @@ function Btn({ label, onPress, variant = "primary", size = "md", disabled, full 
 
 // ─── Tab Bar ──────────────────────────────────────────────────────────────────
 
-const TABS: { id: Tab; label: string; emoji: string }[] = [
-  { id: "committee", label: "Committee", emoji: "🏛" },
-  { id: "members",   label: "Members",   emoji: "👥" },
-  { id: "chat",      label: "Chat",      emoji: "💬" },
-  { id: "kuri",      label: "Kuri",      emoji: "💰" },
+type TabDef = { id: Tab; label: string; Icon: (p: { color: string; size: number }) => React.ReactElement };
+const TABS: TabDef[] = [
+  { id: "committee", label: "Committee", Icon: ({ color, size }) => <IcoCommittee color={color} size={size} /> },
+  { id: "members",   label: "Members",   Icon: ({ color, size }) => <IcoMembers   color={color} size={size} /> },
+  { id: "chat",      label: "Chat",      Icon: ({ color, size }) => <IcoChat      color={color} size={size} /> },
+  { id: "kuri",      label: "Kuri",      Icon: ({ color, size }) => <IcoKuri      color={color} size={size} /> },
 ];
 
 function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
   return (
-    <View style={s.tabBar}>
+    <View nativeID="tab-bar-safe" style={s.tabBar}>
       {TABS.map((t) => {
         const on = active === t.id;
         return (
           <TouchableOpacity key={t.id} onPress={() => onChange(t.id)} style={s.tabItem} activeOpacity={0.7}>
             <View style={[s.tabPill, on && s.tabPillOn]}>
-              <Text style={{ fontSize: 19 }}>{t.emoji}</Text>
+              <t.Icon color={on ? C.primary : C.textDim} size={20} />
             </View>
             <Text style={[s.tabLabel, on && s.tabLabelOn]}>{t.label}</Text>
           </TouchableOpacity>
@@ -635,6 +642,7 @@ type KuriTabProps = {
   myKuris: KuriPlan[];
   members: Member[];
   currentUserEmail: string;
+  currentUserId: string;
   kuriName: string; setKuriName: (v: string) => void;
   kuriAmount: string; setKuriAmount: (v: string) => void;
   kuriDate: string; setKuriDate: (v: string) => void;
@@ -643,12 +651,13 @@ type KuriTabProps = {
   notifRules: NotifRule[];
   setNotifRules: React.Dispatch<React.SetStateAction<NotifRule[]>>;
   onCreateKuri: () => void;
+  onManageKuri: (kuriId: string) => void;
 };
 
 function KuriTabView({
-  myKuris, currentUserEmail, kuriName, setKuriName, kuriAmount, setKuriAmount,
+  myKuris, currentUserEmail, currentUserId, kuriName, setKuriName, kuriAmount, setKuriAmount,
   kuriDate, setKuriDate, kuriParticipantIds, onOpenPicker,
-  notifRules, setNotifRules, onCreateKuri,
+  notifRules, setNotifRules, onCreateKuri, onManageKuri,
 }: KuriTabProps) {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const dateDisplay = formatDateDisplay(kuriDate);
@@ -685,9 +694,21 @@ function KuriTabView({
                   <Text style={s.kuriVal}>{k.participantUserIds.length} people</Text>
                 </View>
                 <View style={s.kuriCardRow}>
-                  <Text style={s.kuriMeta}>Currency</Text>
-                  <Text style={s.kuriVal}>{k.currency}</Text>
+                  <Text style={s.kuriMeta}>UPI</Text>
+                  <Text style={[s.kuriVal, !k.upiId && { color: C.textDim }]}>
+                    {k.upiId || (k.createdBy === currentUserId ? "Not set" : "—")}
+                  </Text>
                 </View>
+                <TouchableOpacity
+                  style={s.kuriManageBtn}
+                  onPress={() => onManageKuri(k.id)}
+                  activeOpacity={0.7}
+                >
+                  <IcoMore color={C.primary} size={16} />
+                  <Text style={s.kuriManageBtnText}>
+                    {k.createdBy === currentUserId ? "Manage Plan" : "Payments"}
+                  </Text>
+                </TouchableOpacity>
               </View>
             ))}
           </Panel>
@@ -823,6 +844,504 @@ function KuriTabView({
   );
 }
 
+// ─── Kuri payment helpers ─────────────────────────────────────────────────────
+
+function getMonthRange(startDate: string): string[] {
+  if (!startDate.match(/^\d{4}-\d{2}-\d{2}$/)) return [];
+  const [sy, sm] = startDate.split("-").map(Number);
+  const now = new Date();
+  const ey = now.getFullYear(), em = now.getMonth() + 1;
+  const months: string[] = [];
+  let y = sy, m = sm;
+  while ((y < ey || (y === ey && m <= em)) && months.length < 36) {
+    months.push(`${y}-${String(m).padStart(2, "0")}`);
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return months;
+}
+
+function fmtMonth(ym: string) {
+  const [y, m] = ym.split("-").map(Number);
+  return `${MONTHS_SHORT[m - 1]} ${y}`;
+}
+
+function extractTxnId(text: string): string {
+  const pats = [
+    /UTR\s*(?:No\.?|#|:)?\s*([A-Z0-9]{10,22})/i,
+    /Transaction\s*(?:ID|No\.?|Ref)\s*:?\s*([A-Z0-9]{10,22})/i,
+    /Reference\s*(?:No\.?)?\s*:?\s*([A-Z0-9]{10,22})/i,
+    /UPI\s*(?:Ref|ID|Txn)\s*:?\s*([A-Z0-9]{10,22})/i,
+    /Ref\s*:?\s*([A-Z0-9]{10,22})/i,
+    /\b([0-9]{12})\b/,
+    /\b(T[0-9]{11})\b/,
+    /\b([A-Z]{4}[0-9]{14,18})\b/,
+  ];
+  for (const p of pats) {
+    const m = text.match(p);
+    if (m) return (m[1] || m[0]).trim().toUpperCase();
+  }
+  return "";
+}
+
+function webPickFile(
+  accept: string,
+  maxBytes: number,
+  onDone: (b64: string, name: string, text?: string) => void
+) {
+  if (Platform.OS !== "web" || typeof document === "undefined") return;
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = accept; inp.style.display = "none";
+  document.body.appendChild(inp);
+  inp.onchange = (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    document.body.removeChild(inp);
+    if (!file) return;
+    if (file.size > maxBytes) {
+      Alert.alert("File too large", `Maximum size is ${Math.round(maxBytes / 1024)}KB`);
+      return;
+    }
+    const r = new FileReader();
+    r.onload = () => {
+      const b64 = r.result as string;
+      if (file.type.includes("pdf") || file.type.startsWith("text/")) {
+        const tr = new FileReader();
+        tr.onload = () => onDone(b64, file.name, (tr.result as string) || "");
+        tr.readAsText(file);
+      } else {
+        onDone(b64, file.name);
+      }
+    };
+    r.readAsDataURL(file);
+  };
+  inp.click();
+}
+
+// ─── Kuri Manage Modal ────────────────────────────────────────────────────────
+
+type KuriManageModalProps = {
+  visible: boolean;
+  kuri: KuriPlan | null;
+  currentUser: User;
+  members: Member[];
+  payments: KuriPayment[];
+  isCreator: boolean;
+  onClose: () => void;
+  onDelete: (id: string, name: string) => void;
+  onSaveUpi: (kuriId: string, upiId: string, qr?: string) => Promise<void>;
+  onSubmitPayment: (kuriId: string, month: string, txnId: string, amt: number, rcpt?: string, rcptName?: string) => Promise<void>;
+  onReviewPayment: (paymentId: string, approved: boolean, notes?: string) => Promise<void>;
+};
+
+function KuriManageModal({
+  visible, kuri, currentUser, members, payments, isCreator,
+  onClose, onDelete, onSaveUpi, onSubmitPayment, onReviewPayment,
+}: KuriManageModalProps) {
+  const [tab, setTab] = useState<"payments" | "upi" | "info">("payments");
+  const [upiId, setUpiId] = useState("");
+  const [qrB64, setQrB64] = useState<string | undefined>(undefined);
+  const [savingUpi, setSavingUpi] = useState(false);
+
+  // Per-month submission state
+  const [submitMonth, setSubmitMonth] = useState<string | null>(null);
+  const [txnId, setTxnId] = useState("");
+  const [receiptB64, setReceiptB64] = useState<string | undefined>(undefined);
+  const [receiptName, setReceiptName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [autoExtracted, setAutoExtracted] = useState(false);
+
+  // Review state
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [rejNotes, setRejNotes] = useState("");
+
+  useEffect(() => {
+    if (visible && kuri) {
+      setUpiId(kuri.upiId || "");
+      setQrB64(kuri.upiQrBase64);
+      setTab("payments");
+      setSubmitMonth(null);
+      setTxnId(""); setReceiptB64(undefined); setReceiptName(""); setAutoExtracted(false);
+    }
+  }, [visible, kuri?.id]);
+
+  if (!kuri) return null;
+
+  const months = getMonthRange(kuri.startDate);
+  const myPayments = payments.filter((p) => p.kuriId === kuri.id && p.userId === currentUser.id);
+  const allPayments = payments.filter((p) => p.kuriId === kuri.id);
+
+  const getMyPayment = (m: string) => myPayments.find((p) => p.month === m);
+  const getMonthPayments = (m: string) => allPayments.filter((p) => p.month === m);
+
+  const handleSaveUpi = async () => {
+    if (!upiId.trim()) { Alert.alert("Required", "Enter your UPI ID"); return; }
+    setSavingUpi(true);
+    try { await onSaveUpi(kuri.id, upiId, qrB64); Alert.alert("Saved!", "Payment info updated."); }
+    catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed."); }
+    finally { setSavingUpi(false); }
+  };
+
+  const handlePickQr = () =>
+    webPickFile("image/*", 500 * 1024, (b64) => setQrB64(b64));
+
+  const handlePickReceipt = () =>
+    webPickFile("image/*,application/pdf,.pdf", 2 * 1024 * 1024, (b64, name, text) => {
+      setReceiptB64(b64); setReceiptName(name);
+      if (text) {
+        const found = extractTxnId(text);
+        if (found) { setTxnId(found); setAutoExtracted(true); }
+      }
+    });
+
+  const handleSubmitPayment = async () => {
+    if (!txnId.trim()) { Alert.alert("Required", "Enter the UPI transaction / UTR ID."); return; }
+    if (!submitMonth) return;
+    setSubmitting(true);
+    try {
+      await onSubmitPayment(kuri.id, submitMonth, txnId, kuri.contributionAmount, receiptB64, receiptName || undefined);
+      setSubmitMonth(null); setTxnId(""); setReceiptB64(undefined); setReceiptName(""); setAutoExtracted(false);
+      Alert.alert("Submitted!", "Payment submitted for review.");
+    } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed."); }
+    finally { setSubmitting(false); }
+  };
+
+  const copyUpi = () => {
+    if (Platform.OS === "web" && navigator.clipboard) {
+      navigator.clipboard.writeText(kuri.upiId || "").then(() => Alert.alert("Copied!", "UPI ID copied.")).catch(() => {});
+    }
+  };
+
+  const statusColor = (st: KuriPayment["status"]) =>
+    st === "approved" ? C.green : st === "rejected" ? C.danger : C.warn;
+  const statusLabel = (st: KuriPayment["status"]) =>
+    st === "approved" ? "Approved" : st === "rejected" ? "Rejected" : "Submitted";
+
+  const memberName = (uid: string) => members.find((m) => m.user.id === uid)?.user.name ?? uid;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={s.overlay}>
+        <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />
+        <View style={[s.sheet, { maxHeight: "92%" }]}>
+          <View style={s.handle} />
+
+          {/* Header */}
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.sheetTitle} numberOfLines={1}>{kuri.name}</Text>
+              <Text style={[s.meta, { fontSize: 12 }]}>₹{kuri.contributionAmount.toLocaleString()} / mo · {kuri.participantUserIds.length} participants</Text>
+            </View>
+            {isCreator && (
+              <TouchableOpacity
+                style={[s.iconBtn, { backgroundColor: C.dangerDark, marginLeft: 8 }]}
+                onPress={() => onDelete(kuri.id, kuri.name)}
+                activeOpacity={0.7}
+              >
+                <IcoTrash color={C.dangerFg} size={17} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Sub-tabs */}
+          <View style={s.subTabRow}>
+            {(isCreator
+              ? [{ id: "payments", lbl: "Payments" }, { id: "upi", lbl: "UPI Setup" }]
+              : [{ id: "payments", lbl: "My Payments" }, { id: "info", lbl: "Pay Info" }]
+            ).map((t) => (
+              <TouchableOpacity
+                key={t.id}
+                style={[s.subTab, tab === t.id && s.subTabOn]}
+                onPress={() => setTab(t.id as typeof tab)}
+                activeOpacity={0.7}
+              >
+                <Text style={[s.subTabText, tab === t.id && s.subTabTextOn]}>{t.lbl}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+            {/* ── PAYMENTS TAB ── */}
+            {tab === "payments" && (
+              <View style={{ paddingVertical: 4 }}>
+                {months.length === 0 && (
+                  <View style={{ alignItems: "center", paddingVertical: 24 }}>
+                    <Text style={s.meta}>No months to display yet.</Text>
+                  </View>
+                )}
+                {months.map((m) => {
+                  if (isCreator) {
+                    const mPays = getMonthPayments(m);
+                    const approved = mPays.filter((p) => p.status === "approved").length;
+                    const submitted = mPays.filter((p) => p.status === "submitted").length;
+                    return (
+                      <View key={m} style={s.monthRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.monthLabel}>{fmtMonth(m)}</Text>
+                          <Text style={s.monthSub}>
+                            {approved}/{kuri.participantUserIds.length} paid
+                            {submitted > 0 ? ` · ${submitted} pending` : ""}
+                          </Text>
+                        </View>
+                        {submitted > 0 && (
+                          <TouchableOpacity
+                            style={s.reviewBtn}
+                            onPress={() => setReviewingId(m)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={s.reviewBtnText}>Review ({submitted})</Text>
+                          </TouchableOpacity>
+                        )}
+                        {approved === kuri.participantUserIds.length && (
+                          <View style={[s.statusPill, { backgroundColor: C.greenDark }]}>
+                            <IcoCheck color={C.green} size={12} />
+                            <Text style={[s.statusPillText, { color: C.green }]}>All Paid</Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  }
+
+                  // Member view
+                  const pay = getMyPayment(m);
+                  const isOpen = submitMonth === m;
+                  return (
+                    <View key={m}>
+                      <View style={s.monthRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.monthLabel}>{fmtMonth(m)}</Text>
+                          {pay && (
+                            <Text style={[s.monthSub, { color: statusColor(pay.status) }]}>
+                              {statusLabel(pay.status)}
+                              {pay.transactionId ? ` · ${pay.transactionId}` : ""}
+                            </Text>
+                          )}
+                          {pay?.notes && pay.status === "rejected" && (
+                            <Text style={[s.monthSub, { color: C.danger }]}>↳ {pay.notes}</Text>
+                          )}
+                        </View>
+                        {!pay || pay.status === "rejected" ? (
+                          <TouchableOpacity
+                            style={[s.payBtn, isOpen && s.payBtnOpen]}
+                            onPress={() => {
+                              if (isOpen) { setSubmitMonth(null); }
+                              else { setSubmitMonth(m); setTxnId(""); setReceiptB64(undefined); setReceiptName(""); setAutoExtracted(false); }
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={s.payBtnText}>{isOpen ? "Cancel" : (pay?.status === "rejected" ? "Resubmit" : "Submit")}</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <View style={[s.statusPill, { backgroundColor: pay.status === "approved" ? C.greenDark : pay.status === "submitted" ? "#451a03" : C.dangerDark }]}>
+                            <Text style={[s.statusPillText, { color: statusColor(pay.status) }]}>{statusLabel(pay.status)}</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Submit form */}
+                      {isOpen && (
+                        <View style={s.submitForm}>
+                          {/* Transaction ID */}
+                          <View style={{ marginBottom: 10 }}>
+                            <Text style={s.label}>
+                              UPI / UTR Transaction ID
+                              {autoExtracted && <Text style={{ color: C.green }}> (auto-detected)</Text>}
+                            </Text>
+                            <TextInput
+                              style={s.input}
+                              value={txnId}
+                              onChangeText={(v) => { setTxnId(v); setAutoExtracted(false); }}
+                              placeholder="e.g. 425012345678"
+                              placeholderTextColor={C.textDim}
+                              autoCapitalize="characters"
+                              autoCorrect={false}
+                            />
+                          </View>
+
+                          {/* Receipt upload */}
+                          <TouchableOpacity
+                            style={s.uploadBox}
+                            onPress={handlePickReceipt}
+                            activeOpacity={0.75}
+                          >
+                            {receiptB64 ? (
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                <IcoReceipt color={C.green} size={20} />
+                                <Text style={{ color: C.green, fontWeight: "700", fontSize: 13 }} numberOfLines={1}>{receiptName}</Text>
+                              </View>
+                            ) : (
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                <IcoUpload color={C.textMuted} size={20} />
+                                <Text style={{ color: C.textMuted, fontSize: 13 }}>Upload receipt (photo/PDF, max 2MB)</Text>
+                              </View>
+                            )}
+                          </TouchableOpacity>
+
+                          <Btn label={submitting ? "Submitting…" : "Submit Payment"} onPress={handleSubmitPayment} disabled={submitting} size="md" full />
+                        </View>
+                      )}
+
+                      {/* Show receipt if submitted */}
+                      {pay && pay.receiptBase64 && pay.status !== "rejected" && (
+                        <TouchableOpacity
+                          style={[s.uploadBox, { marginTop: -4, marginBottom: 8 }]}
+                          onPress={() => Alert.alert("Receipt", `File: ${pay.receiptFileName || "receipt"}\nTxn: ${pay.transactionId}`)}
+                          activeOpacity={0.7}
+                        >
+                          <IcoReceipt color={C.textMuted} size={16} />
+                          <Text style={{ color: C.textMuted, fontSize: 12, marginLeft: 6 }}>{pay.receiptFileName || "Receipt uploaded"}</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })}
+
+                {/* Creator: Review modal */}
+                {isCreator && reviewingId && (
+                  <View style={s.reviewPanel}>
+                    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+                      <Text style={[s.sheetTitle, { fontSize: 16, flex: 1 }]}>{fmtMonth(reviewingId)} — Submissions</Text>
+                      <TouchableOpacity onPress={() => { setReviewingId(null); setRejNotes(""); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <IcoX color={C.textMuted} size={20} />
+                      </TouchableOpacity>
+                    </View>
+                    {getMonthPayments(reviewingId).filter((p) => p.status === "submitted").map((p) => (
+                      <View key={p.id} style={s.reviewItem}>
+                        <View style={{ marginBottom: 8 }}>
+                          <Text style={{ color: C.text, fontWeight: "700" }}>{memberName(p.userId)}</Text>
+                          <Text style={[s.meta, { fontSize: 12 }]}>Txn: {p.transactionId}</Text>
+                          {p.receiptFileName && <Text style={[s.meta, { fontSize: 11 }]}>Receipt: {p.receiptFileName}</Text>}
+                          {p.receiptBase64 && p.receiptBase64.startsWith("data:image") && (
+                            <Image
+                              source={{ uri: p.receiptBase64 }}
+                              style={{ width: "100%", height: 140, borderRadius: 8, marginTop: 8, backgroundColor: C.border }}
+                              resizeMode="contain"
+                            />
+                          )}
+                        </View>
+                        <TextInput
+                          style={[s.input, { marginBottom: 8, fontSize: 13 }]}
+                          value={reviewingId === p.month ? rejNotes : ""}
+                          onChangeText={setRejNotes}
+                          placeholder="Rejection note (optional)"
+                          placeholderTextColor={C.textDim}
+                        />
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          <View style={{ flex: 1 }}>
+                            <Btn label="Approve" variant="green" size="sm" full onPress={() => { onReviewPayment(p.id, true); setReviewingId(null); setRejNotes(""); }} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Btn label="Reject" variant="danger" size="sm" full onPress={() => { onReviewPayment(p.id, false, rejNotes || undefined); setReviewingId(null); setRejNotes(""); }} />
+                          </View>
+                        </View>
+                      </View>
+                    ))}
+                    {getMonthPayments(reviewingId).filter((p) => p.status === "submitted").length === 0 && (
+                      <Text style={s.meta}>No pending submissions.</Text>
+                    )}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* ── UPI SETUP TAB (creator) ── */}
+            {tab === "upi" && isCreator && (
+              <View style={{ paddingVertical: 8 }}>
+                <Text style={s.label}>Your UPI ID</Text>
+                <TextInput
+                  style={[s.input, { marginBottom: 14 }]}
+                  value={upiId}
+                  onChangeText={setUpiId}
+                  placeholder="example@upi"
+                  placeholderTextColor={C.textDim}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                />
+                <Text style={[s.meta, { marginBottom: 14 }]}>Members will see this UPI ID to make their monthly payment.</Text>
+
+                <Text style={s.label}>Payment QR Code (optional)</Text>
+                <TouchableOpacity style={s.uploadBox} onPress={handlePickQr} activeOpacity={0.75}>
+                  {qrB64 ? (
+                    <View style={{ alignItems: "center", gap: 8 }}>
+                      <Image source={{ uri: qrB64 }} style={{ width: 160, height: 160, borderRadius: 8 }} resizeMode="contain" />
+                      <Text style={{ color: C.textMuted, fontSize: 12 }}>Tap to replace</Text>
+                    </View>
+                  ) : (
+                    <View style={{ alignItems: "center", gap: 8, paddingVertical: 16 }}>
+                      <IcoQr color={C.textMuted} size={40} />
+                      <Text style={{ color: C.textMuted, fontSize: 13 }}>Upload QR code image (max 500KB)</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+                {qrB64 && (
+                  <TouchableOpacity onPress={() => setQrB64(undefined)} style={{ marginBottom: 12, alignSelf: "flex-start" }}>
+                    <Text style={{ color: C.danger, fontSize: 13, fontWeight: "600" }}>✕ Remove QR</Text>
+                  </TouchableOpacity>
+                )}
+                <Btn label={savingUpi ? "Saving…" : "Save Payment Info"} onPress={handleSaveUpi} disabled={savingUpi} size="lg" full />
+              </View>
+            )}
+
+            {/* ── PAY INFO TAB (member) ── */}
+            {tab === "info" && !isCreator && (
+              <View style={{ paddingVertical: 8 }}>
+                {kuri.upiId ? (
+                  <>
+                    <View style={s.upiBox}>
+                      <Text style={s.upiLabel}>Pay to UPI ID</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
+                        <Text style={s.upiValue} selectable>{kuri.upiId}</Text>
+                        <TouchableOpacity onPress={copyUpi} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <IcoCopy color={C.primary} size={18} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    {kuri.upiQrBase64 ? (
+                      <View style={{ alignItems: "center", marginTop: 16 }}>
+                        <Text style={[s.label, { marginBottom: 10 }]}>Scan to Pay</Text>
+                        <Image
+                          source={{ uri: kuri.upiQrBase64 }}
+                          style={{ width: 200, height: 200, borderRadius: 12, backgroundColor: "#fff" }}
+                          resizeMode="contain"
+                        />
+                      </View>
+                    ) : (
+                      <View style={[s.upiBox, { marginTop: 10 }]}>
+                        <IcoQr color={C.textDim} size={18} />
+                        <Text style={[s.meta, { marginLeft: 8 }]}>No QR code uploaded by creator yet.</Text>
+                      </View>
+                    )}
+                    <View style={[s.upiBox, { marginTop: 14 }]}>
+                      <Text style={[s.meta, { fontSize: 13, lineHeight: 20 }]}>
+                        1. Open your UPI app (GPay, PhonePe, Paytm){"\n"}
+                        2. Send ₹{kuri.contributionAmount.toLocaleString()} to the UPI ID above{"\n"}
+                        3. Note the transaction ID (UTR){"\n"}
+                        4. Go to My Payments tab and tap Submit
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <View style={{ alignItems: "center", paddingVertical: 32 }}>
+                    <IcoQr color={C.textDim} size={40} />
+                    <Text style={[s.meta, { marginTop: 12, textAlign: "center" }]}>
+                      The Kuri creator hasn't set up payment info yet.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <View style={{ height: 20 }} />
+          </ScrollView>
+
+          <Btn label="Close" variant="outline" onPress={onClose} size="md" full />
+          <View style={{ height: 12 }} />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -861,6 +1380,9 @@ export default function App() {
     Array<{ id: string; channel: "email" | "in_app"; beforeDays: string; emails: string }>
   >([{ id: "r1", channel: "in_app", beforeDays: "2", emails: "" }]);
 
+  // Kuri manage modal
+  const [managingKuriId, setManagingKuriId] = useState<string | null>(null);
+
   // Modals
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState("");
@@ -887,6 +1409,18 @@ export default function App() {
         document.head.appendChild(m);
       }
     });
+    // Fix iOS PWA footer: fill the safe-area strip with app background
+    document.body.style.backgroundColor = "#020817";
+    document.documentElement.style.backgroundColor = "#020817";
+    if (!document.querySelector("#kuri-safe-style")) {
+      const style = document.createElement("style");
+      style.id = "kuri-safe-style";
+      style.textContent = `
+        html, body { background: #020817 !important; }
+        #tab-bar-safe { padding-bottom: env(safe-area-inset-bottom, 4px) !important; }
+      `;
+      document.head.appendChild(style);
+    }
   }, []);
 
   // Restore login session from localStorage
@@ -997,6 +1531,17 @@ export default function App() {
     if (!activeCommittee) return [];
     return data.invitations.filter((i) => i.groupId === activeCommittee.id && i.status === "pending");
   }, [activeCommittee, data.invitations]);
+
+  const kuriPayments = useMemo<KuriPayment[]>(() => {
+    if (!activeCommittee) return [];
+    const groupKuriIds = new Set(myKuris.map((k) => k.id));
+    return (data.payments || []).filter((p) => groupKuriIds.has(p.kuriId));
+  }, [activeCommittee, myKuris, data.payments]);
+
+  const managingKuri = useMemo(
+    () => myKuris.find((k) => k.id === managingKuriId) ?? null,
+    [managingKuriId, myKuris]
+  );
 
   const invitedForMe = useMemo<Invitation[]>(() => {
     if (!currentUser) return [];
@@ -1118,6 +1663,49 @@ export default function App() {
     ]);
   };
 
+  const deleteKuri = (kuriId: string, kuriName: string) => {
+    Alert.alert("Delete Kuri Plan", `Delete "${kuriName}"? This cannot be undone.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete", style: "destructive", onPress: async () => {
+          if (!currentUser) return;
+          try {
+            await kuriService.deleteKuri(kuriId, currentUser.id);
+            setManagingKuriId(null);
+            await refresh();
+          } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed."); }
+        },
+      },
+    ]);
+  };
+
+  const saveKuriUpi = async (kuriId: string, upiId: string, qrBase64?: string) => {
+    if (!currentUser) return;
+    try {
+      await kuriService.updateKuriPaymentInfo(kuriId, currentUser.id, upiId, qrBase64);
+      await refresh();
+    } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed."); }
+  };
+
+  const submitKuriPayment = async (
+    kuriId: string, month: string, txnId: string,
+    amount: number, receiptBase64?: string, receiptFileName?: string
+  ) => {
+    if (!currentUser) return;
+    try {
+      await kuriService.submitPayment(kuriId, currentUser.id, month, txnId, amount, receiptBase64, receiptFileName);
+      await refresh();
+    } catch (e: unknown) { throw e; }
+  };
+
+  const reviewKuriPayment = async (paymentId: string, approved: boolean, notes?: string) => {
+    if (!currentUser) return;
+    try {
+      await kuriService.reviewPayment(paymentId, currentUser.id, approved, notes);
+      await refresh();
+    } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed."); }
+  };
+
   // ── Loading ────────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -1125,7 +1713,7 @@ export default function App() {
       <SafeAreaView style={s.safe}>
         <StatusBar style="light" />
         <View style={s.splash}>
-          <View style={s.logoMark}><Text style={s.logoText}>C</Text></View>
+          <AppLogo size={80} />
           <Text style={s.brand}>Committee App</Text>
           <ActivityIndicator color={C.primary} size="large" style={{ marginTop: 32 }} />
           <Text style={[s.meta, { marginTop: 10, fontSize: 14 }]}>Loading…</Text>
@@ -1147,7 +1735,7 @@ export default function App() {
             showsVerticalScrollIndicator={false}
           >
             <View style={s.authTop}>
-              <View style={s.logoMark}><Text style={s.logoText}>C</Text></View>
+              <AppLogo size={72} />
               <Text style={s.brand}>Committee App</Text>
               <Text style={s.heroText}>
                 Manage savings committees, invite members, chat live, and track Kuri plans.
@@ -1271,14 +1859,21 @@ export default function App() {
         </View>
         <View style={s.headerRight}>
           <TouchableOpacity style={s.notifBtn} onPress={() => setNotifsOpen(true)} activeOpacity={0.7}>
-            <Text style={{ fontSize: 22 }}>🔔</Text>
+            <IcoBell color={unreadCount > 0 ? C.primary : C.textMuted} size={22} />
             {unreadCount > 0 && (
               <View style={s.notifBadge}>
                 <Text style={s.notifBadgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
               </View>
             )}
           </TouchableOpacity>
-          <Btn label="Sign Out" variant="ghost" size="sm" onPress={() => setCurrentUser(null)} />
+          <TouchableOpacity
+            style={s.iconBtn}
+            onPress={() => setCurrentUser(null)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <IcoSignOut color={C.textMuted} size={20} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -1320,6 +1915,7 @@ export default function App() {
             myKuris={myKuris}
             members={members}
             currentUserEmail={currentUser.email}
+            currentUserId={currentUser.id}
             kuriName={kuriName} setKuriName={setKuriName}
             kuriAmount={kuriAmount} setKuriAmount={setKuriAmount}
             kuriDate={kuriDate} setKuriDate={setKuriDate}
@@ -1327,6 +1923,7 @@ export default function App() {
             onOpenPicker={() => setParticipantPickerOpen(true)}
             notifRules={notifRules} setNotifRules={setNotifRules}
             onCreateKuri={createKuri}
+            onManageKuri={setManagingKuriId}
           />
         )}
       </View>
@@ -1448,6 +2045,23 @@ export default function App() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Kuri Manage ── */}
+      {currentUser && (
+        <KuriManageModal
+          visible={!!managingKuriId}
+          kuri={managingKuri}
+          currentUser={currentUser}
+          members={members}
+          payments={kuriPayments}
+          isCreator={managingKuri?.createdBy === currentUser.id}
+          onClose={() => setManagingKuriId(null)}
+          onDelete={deleteKuri}
+          onSaveUpi={saveKuriUpi}
+          onSubmitPayment={submitKuriPayment}
+          onReviewPayment={reviewKuriPayment}
+        />
+      )}
 
       {/* ── Notifications ── */}
       <Modal visible={notifsOpen} transparent animationType="slide">
@@ -1672,6 +2286,7 @@ const s = StyleSheet.create({
   checkboxSel: { backgroundColor: C.primary, borderColor: C.primary },
   checkmark: { color: C.primaryFg, fontWeight: "900", fontSize: 13 },
 
+  iconBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.border, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   notifBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   notifBadge: { position: "absolute", top: 4, right: 4, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: C.danger, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },
   notifBadgeText: { color: "#fff", fontSize: 10, fontWeight: "700" },
@@ -1680,4 +2295,40 @@ const s = StyleSheet.create({
   notifItemTitle: { color: C.text, fontWeight: "700", fontSize: 14, marginBottom: 3 },
   notifItemMsg: { color: C.textMuted, fontSize: 13, lineHeight: 18 },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary, flexShrink: 0 },
+
+  // Kuri manage btn
+  kuriManageBtn: { flexDirection: "row", alignItems: "center", gap: 6, margin: 10, marginTop: 8, alignSelf: "flex-end", backgroundColor: C.primaryLight, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 },
+  kuriManageBtnText: { color: C.primary, fontSize: 13, fontWeight: "700" },
+
+  // Manage modal sub-tabs
+  subTabRow: { flexDirection: "row", backgroundColor: C.bg, borderRadius: 10, padding: 3, marginBottom: 14 },
+  subTab: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center" },
+  subTabOn: { backgroundColor: C.primaryLight },
+  subTabText: { color: C.textDim, fontSize: 13, fontWeight: "700" },
+  subTabTextOn: { color: C.primary },
+
+  // Month payment rows
+  monthRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border, gap: 8 },
+  monthLabel: { color: C.text, fontWeight: "700", fontSize: 14 },
+  monthSub: { color: C.textMuted, fontSize: 12, marginTop: 2 },
+  statusPill: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, flexShrink: 0 },
+  statusPillText: { fontSize: 11, fontWeight: "700" },
+  payBtn: { backgroundColor: C.primaryLight, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, flexShrink: 0 },
+  payBtnOpen: { backgroundColor: C.border },
+  payBtnText: { color: C.primary, fontSize: 12, fontWeight: "700" },
+  reviewBtn: { backgroundColor: "#451a03", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, flexShrink: 0 },
+  reviewBtnText: { color: C.warn, fontSize: 12, fontWeight: "700" },
+
+  // Submit form
+  submitForm: { backgroundColor: C.inputBg, borderRadius: 12, borderWidth: 1, borderColor: C.borderStrong, padding: 12, marginBottom: 8 },
+  uploadBox: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: C.borderStrong, borderStyle: "dashed" as any, borderRadius: 10, padding: 14, marginBottom: 12, backgroundColor: C.bg },
+
+  // Review panel
+  reviewPanel: { backgroundColor: C.inputBg, borderRadius: 12, borderWidth: 1, borderColor: C.borderStrong, padding: 14, marginTop: 8 },
+  reviewItem: { borderTopWidth: 1, borderTopColor: C.border, paddingTop: 12, marginTop: 8 },
+
+  // UPI info box
+  upiBox: { flexDirection: "column", backgroundColor: C.inputBg, borderRadius: 10, borderWidth: 1, borderColor: C.borderStrong, padding: 14, marginBottom: 4 },
+  upiLabel: { color: C.textMuted, fontSize: 12, fontWeight: "600" },
+  upiValue: { color: C.primary, fontSize: 17, fontWeight: "800", flex: 1 },
 });
