@@ -243,8 +243,6 @@ export default function App() {
     }
   }, [currentUser]);
 
-  useEffect(() => { void init(); }, []);
-
   const init = async () => {
     setLoading(true);
     try {
@@ -262,12 +260,7 @@ export default function App() {
     }
   };
 
-  // Auto-refresh chat every 4 seconds when on chat tab and not typing
-  useEffect(() => {
-    if (activeTab !== "chat" || !activeCommittee) return;
-    const id = setInterval(() => { if (!chatFocused) void refresh(); }, 4000);
-    return () => clearInterval(id);
-  }, [activeTab, activeCommittee, refresh, chatFocused]);
+  useEffect(() => { void init(); }, []);
 
   const refresh = useCallback(async () => {
     try { setData(await kuriService.getData()); } catch {}
@@ -277,6 +270,13 @@ export default function App() {
     if (!currentUser) return undefined;
     return data.groups.find((g) => g.members.some((m) => m.userId === currentUser.id));
   }, [currentUser, data.groups]);
+
+  // Auto-refresh chat every 4 seconds when on chat tab and not typing
+  useEffect(() => {
+    if (activeTab !== "chat" || !activeCommittee) return;
+    const id = setInterval(() => { if (!chatFocused) void refresh(); }, 4000);
+    return () => clearInterval(id);
+  }, [activeTab, activeCommittee, refresh, chatFocused]);
 
   const members = useMemo(() => {
     if (!activeCommittee) return [];
