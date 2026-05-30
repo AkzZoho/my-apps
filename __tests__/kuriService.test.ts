@@ -135,7 +135,7 @@ describe("createKuri", () => {
     const group = await kuriService.createGroup("Circle", user.id, [], "");
     const kuri = await kuriService.createKuri(
       group.id, user.id, "Monthly Plan", 5000, "INR", "2025-01-01",
-      [user.id], { rules: [{ channel: "in_app", beforeDays: 2, emailRecipients: [] }] }
+      [user.id], { rules: [{ channel: "in_app", beforeDays: 2, emailRecipients: [] }] }, "test@upi"
     );
     expect(kuri.name).toBe("Monthly Plan");
     expect(kuri.contributionAmount).toBe(5000);
@@ -149,7 +149,7 @@ describe("createKuri", () => {
     const outsider = await kuriService.createUser("Out", "out@example.com");
     const group = await kuriService.createGroup("Circle", admin.id, [], "");
     await expect(
-      kuriService.createKuri(group.id, outsider.id, "Plan", 1000, "INR", "2025-01-01", [], { rules: [] })
+      kuriService.createKuri(group.id, outsider.id, "Plan", 1000, "INR", "2025-01-01", [], { rules: [] }, "test@upi")
     ).rejects.toThrow("Only group members can create a Kuri.");
   });
 });
@@ -181,7 +181,7 @@ describe("generateMonthlyInAppNotifications", () => {
     // Start date on the 15th, rule fires 2 days before = day 13
     await kuriService.createKuri(
       group.id, user.id, "Plan", 1000, "INR", "2025-01-15",
-      [user.id], { rules: [{ channel: "in_app", beforeDays: 2, emailRecipients: [] }] }
+      [user.id], { rules: [{ channel: "in_app", beforeDays: 2, emailRecipients: [] }] }, "test@upi"
     );
     const testDate = new Date("2025-01-13");
     await kuriService.generateMonthlyInAppNotifications(testDate);
@@ -196,7 +196,7 @@ describe("generateMonthlyInAppNotifications", () => {
     const group = await kuriService.createGroup("Circle", user.id, [], "");
     await kuriService.createKuri(
       group.id, user.id, "Plan", 1000, "INR", "2025-02-15",
-      [user.id], { rules: [{ channel: "in_app", beforeDays: 2, emailRecipients: [] }] }
+      [user.id], { rules: [{ channel: "in_app", beforeDays: 2, emailRecipients: [] }] }, "test@upi"
     );
     const testDate = new Date("2025-02-13");
     await kuriService.generateMonthlyInAppNotifications(testDate);

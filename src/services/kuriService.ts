@@ -138,7 +138,9 @@ export class KuriService {
         beforeDays: number;
         emailRecipients: string[];
       }>;
-    }
+    },
+    upiId: string,
+    upiQrBase64?: string
   ): Promise<KuriPlan> {
     const data = await loadData();
     const group = data.groups.find((g) => g.id === groupId);
@@ -146,6 +148,8 @@ export class KuriService {
 
     const isMember = group.members.some((m) => m.userId === createdBy);
     if (!isMember) throw new Error("Only group members can create a Kuri.");
+
+    if (!upiId.trim()) throw new Error("UPI ID is required to collect payments.");
 
     const uniqueParticipants = Array.from(new Set(participantUserIds));
     const allMembers = new Set(group.members.map((m) => m.userId));
@@ -161,6 +165,8 @@ export class KuriService {
       startDate,
       participantUserIds: validParticipants,
       notificationConfig,
+      upiId: upiId.trim(),
+      upiQrBase64,
       createdAt: nowIso()
     };
     data.kuris.push(kuri);
@@ -274,12 +280,15 @@ export class KuriService {
     month: string,
     transactionId: string,
     amount: number,
-    receiptBase64?: string,
-    receiptFileName?: string
+    receiptBase64: string,
+    receiptFileName: string
   ): Promise<KuriPayment> {
     const data = await loadData();
     const kuri = data.kuris.find((k) => k.id === kuriId);
     if (!kuri) throw new Error("Kuri plan not found.");
+
+    if (!receiptBase64) throw new Error("Receipt is required.");
+    if (!transactionId.trim()) throw new Error("Transaction ID is required.");
 
     if (!Array.isArray(data.payments)) data.payments = [];
     const existing = data.payments.find(
