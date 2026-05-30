@@ -186,6 +186,7 @@ export default function App() {
   const [memberEmail, setMemberEmail] = useState("");
   const [memberEmails, setMemberEmails] = useState<string[]>([]);
   const [chatText, setChatText] = useState("");
+  const [chatFocused, setChatFocused] = useState(false);
   const chatScrollRef = useRef<ScrollView>(null);
 
   const [kuriName, setKuriName] = useState("");
@@ -205,6 +206,43 @@ export default function App() {
   const [memberActionId, setMemberActionId] = useState<string | null>(null);
   const [notifsOpen, setNotifsOpen] = useState(false);
 
+  // Fix viewport and iOS meta tags at runtime (Expo Metro doesn't support custom HTML template)
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") return;
+    const vp = document.querySelector("meta[name='viewport']");
+    if (vp) vp.setAttribute("content", "width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover");
+    const metas: [string, string][] = [
+      ["apple-mobile-web-app-capable", "yes"],
+      ["apple-mobile-web-app-status-bar-style", "black-translucent"],
+      ["theme-color", "#020817"],
+    ];
+    metas.forEach(([name, content]) => {
+      if (!document.querySelector(`meta[name="${name}"]`)) {
+        const m = document.createElement("meta");
+        m.name = name; m.content = content;
+        document.head.appendChild(m);
+      }
+    });
+  }, []);
+
+  // Restore saved session on load
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = window.localStorage.getItem("kuri_session_user");
+      if (saved) { try { setCurrentUser(JSON.parse(saved) as User); } catch {} }
+    }
+  }, []);
+
+  // Persist session on user change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (currentUser) {
+      window.localStorage.setItem("kuri_session_user", JSON.stringify(currentUser));
+    } else {
+      window.localStorage.removeItem("kuri_session_user");
+    }
+  }, [currentUser]);
+
   useEffect(() => { void init(); }, []);
 
   const init = async () => {
@@ -213,6 +251,13 @@ export default function App() {
     setData(await kuriService.getData());
     setLoading(false);
   };
+
+  // Auto-refresh chat every 4 seconds when on chat tab and not typing
+  useEffect(() => {
+    if (activeTab !== "chat" || !activeCommittee) return;
+    const id = setInterval(() => { if (!chatFocused) void refresh(); }, 4000);
+    return () => clearInterval(id);
+  }, [activeTab, activeCommittee, refresh, chatFocused]);
 
   const refresh = useCallback(async () => { setData(await kuriService.getData()); }, []);
 
@@ -627,6 +672,11 @@ export default function App() {
             placeholder="Type a message…"
             placeholderTextColor={C.textDim}
             multiline
+            blurOnSubmit={false}
+            autoCorrect={false}
+            autoCapitalize="none"
+            onFocus={() => setChatFocused(true)}
+            onBlur={() => setChatFocused(false)}
           />
           <TouchableOpacity style={[s.sendBtn, !chatText.trim() && s.sendBtnOff]} onPress={sendChat} disabled={!chatText.trim()}>
             <Text style={s.sendIcon}>➤</Text>
@@ -874,7 +924,7 @@ const s = StyleSheet.create({
   headerName: { color: C.text, fontWeight: "800", fontSize: 15 },
   headerSub: { color: C.textMuted, fontSize: 12 },
 
-  tabBar: { flexDirection: "row", backgroundColor: C.surface, borderTopWidth: 1, borderTopColor: C.border, paddingBottom: 4 },
+  tabBar: { flexDirection: "row", backgroundColor: C.surface, borderTopWidth: 1, borderTopColor: C.border, paddingBottom: Platform.OS === "web" ? 20 : 4 },
   tabItem: { flex: 1, alignItems: "center", paddingVertical: 8, gap: 2 },
   tabItemOn: { borderTopWidth: 2, borderTopColor: C.primary },
   tabLabel: { color: C.textDim, fontSize: 10, fontWeight: "600" },
@@ -888,7 +938,7 @@ const s = StyleSheet.create({
   panelBody: { padding: 14, paddingTop: 8 },
 
   label: { color: C.textMuted, fontSize: 13, fontWeight: "600", marginBottom: 5 },
-  input: { borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.inputBg, color: C.text, borderRadius: 10, paddingVertical: 11, paddingHorizontal: 13, fontSize: 14 },
+  input: { borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.inputBg, color: C.text, borderRadius: 10, paddingVertical: 11, paddingHorizontal: 13, fontSize: 16 },
 
   inlineRow: { flexDirection: "row", gap: 8, alignItems: "flex-end" },
   addEmailBtn: { width: 44, height: 44, backgroundColor: C.primaryLight, borderRadius: 10, alignItems: "center", justifyContent: "center", marginBottom: 12 },
@@ -952,7 +1002,7 @@ const s = StyleSheet.create({
   bubbleTime: { color: C.textDim, fontSize: 10, marginTop: 4, textAlign: "right" },
   bubbleTimeOwn: { color: "#a5f3fc" },
   chatBar: { flexDirection: "row", alignItems: "flex-end", padding: 10, gap: 8, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.surface },
-  chatInput: { flex: 1, backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.borderStrong, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, color: C.text, fontSize: 14, maxHeight: 100 },
+  chatInput: { flex: 1, backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.borderStrong, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, color: C.text, fontSize: 16, maxHeight: 100 },
   sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.primary, alignItems: "center", justifyContent: "center" },
   sendBtnOff: { backgroundColor: C.border },
   sendIcon: { color: C.primaryFg, fontSize: 16, fontWeight: "800" },
