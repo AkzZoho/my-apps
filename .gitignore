@@ -1,5 +1,7 @@
 node_modules/
 .expo/
+dist/
+web-build/
 web.log
 npm-debug.log*
 *.tmp
