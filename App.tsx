@@ -1731,6 +1731,8 @@ export default function App() {
   const [addMemberEmail, setAddMemberEmail] = useState("");
   const [memberActionId, setMemberActionId] = useState<string | null>(null);
   const [notifsOpen, setNotifsOpen] = useState(false);
+  const [activeCommitteeId, setActiveCommitteeId] = useState<string | null>(null);
+  const [committeeSwitcherOpen, setCommitteeSwitcherOpen] = useState(false);
 
   // Runtime meta-tag injection for web/iOS PWA
   useEffect(() => {
@@ -1835,10 +1837,19 @@ export default function App() {
     try { setData(await kuriService.getData()); } catch {}
   }, []);
 
+  const myGroups = useMemo<Group[]>(() => {
+    if (!currentUser) return [];
+    return data.groups.filter((g) => g.members.some((m) => m.userId === currentUser.id));
+  }, [currentUser, data.groups]);
+
   const activeCommittee = useMemo<Group | undefined>(() => {
     if (!currentUser) return undefined;
-    return data.groups.find((g) => g.members.some((m) => m.userId === currentUser.id));
-  }, [currentUser, data.groups]);
+    if (activeCommitteeId) {
+      const found = myGroups.find((g) => g.id === activeCommitteeId);
+      if (found) return found;
+    }
+    return myGroups[0];
+  }, [currentUser, myGroups, activeCommitteeId]);
 
   // Auto-refresh chat without re-rendering (ref-based focus guard)
   useEffect(() => {
@@ -1916,10 +1927,14 @@ export default function App() {
 
   const invitedForMe = useMemo<Invitation[]>(() => {
     if (!currentUser) return [];
+    const myGroupIds = new Set(myGroups.map((g) => g.id));
     return data.invitations.filter(
-      (i) => i.status === "pending" && i.inviteeEmail.toLowerCase() === currentUser.email.toLowerCase()
+      (i) =>
+        i.status === "pending" &&
+        i.inviteeEmail.toLowerCase() === currentUser.email.toLowerCase() &&
+        !myGroupIds.has(i.groupId)
     );
-  }, [currentUser, data.invitations]);
+  }, [currentUser, data.invitations, myGroups]);
 
   const selectedMember = useMemo(
     () => members.find((m) => m.user.id === memberActionId) ?? null,
@@ -1957,11 +1972,13 @@ export default function App() {
     await refresh();
   };
 
-  const joinCommittee = async (code: string) => {
+  const joinCommittee = async (inv: Invitation) => {
     if (!currentUser) return;
     try {
-      await kuriService.joinGroupByInviteCode(code, currentUser.name, currentUser.email);
+      await kuriService.joinGroupByInviteCode(inv.inviteCode, currentUser.name, currentUser.email);
       await refresh();
+      setActiveCommitteeId(inv.groupId);
+      setCommitteeSwitcherOpen(false);
       Alert.alert("Joined!", "You are now a member of the committee.");
     } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed."); }
   };
@@ -2186,7 +2203,7 @@ export default function App() {
                     <Text style={s.inviteCode}>{inv.inviteCode}</Text>
                     <Text style={s.meta}>Tap Join to accept</Text>
                   </View>
-                  <Btn label="Join →" onPress={() => joinCommittee(inv.inviteCode)} size="md" variant="green" />
+                  <Btn label="Join →" onPress={() => joinCommittee(inv)} size="md" variant="green" />
                 </View>
               ))}
             </Panel>
@@ -2231,10 +2248,20 @@ export default function App() {
       <View style={s.header}>
         <View style={s.headerLeft}>
           <Avatar name={currentUser.name} size={38} />
-          <View style={{ marginLeft: 10, flex: 1 }}>
+          <TouchableOpacity
+            style={{ marginLeft: 10, flex: 1 }}
+            onPress={() => setCommitteeSwitcherOpen(true)}
+            activeOpacity={0.7}
+          >
             <Text style={s.headerName} numberOfLines={1}>{currentUser.name}</Text>
-            <Text style={s.headerSub} numberOfLines={1}>{activeCommittee.name}</Text>
-          </View>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Text style={[s.headerSub, { flex: 1 }]} numberOfLines={1}>{activeCommittee.name}</Text>
+              <Text style={{ color: C.textMuted, fontSize: 10, marginLeft: 4 }}>▼</Text>
+              {invitedForMe.length > 0 && (
+                <View style={s.switcherDot} />
+              )}
+            </View>
+          </TouchableOpacity>
         </View>
         <View style={s.headerRight}>
           <TouchableOpacity style={s.notifBtn} onPress={() => setNotifsOpen(true)} activeOpacity={0.7}>
@@ -2473,6 +2500,66 @@ export default function App() {
         </View>
       </Modal>
 
+      {/* ── Committee Switcher ── */}
+      <Modal visible={committeeSwitcherOpen} transparent animationType="slide">
+        <View style={s.overlay}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setCommitteeSwitcherOpen(false)} activeOpacity={1} />
+          <View style={s.sheet}>
+            <View style={s.handle} />
+            <Text style={s.sheetTitle}>Your Committees</Text>
+            <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+              {myGroups.map((g) => {
+                const isActive = g.id === activeCommittee?.id;
+                return (
+                  <TouchableOpacity
+                    key={g.id}
+                    style={[s.switcherRow, isActive && s.switcherRowActive]}
+                    onPress={() => { setActiveCommitteeId(g.id); setCommitteeSwitcherOpen(false); }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={s.switcherIcon}>
+                      <IcoCommittee color={isActive ? C.primary : C.textMuted} size={20} />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={[s.switcherName, isActive && { color: C.primary }]} numberOfLines={1}>{g.name}</Text>
+                      <Text style={s.switcherMeta}>{g.members.length} member{g.members.length !== 1 ? "s" : ""}</Text>
+                    </View>
+                    {isActive && <Text style={{ color: C.primary, fontSize: 12, fontWeight: "700" }}>Active</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+              {invitedForMe.length > 0 && (
+                <>
+                  <View style={s.switcherDivider}>
+                    <Text style={s.switcherDividerText}>Pending Invitations</Text>
+                  </View>
+                  {invitedForMe.map((inv) => {
+                    const grp = data.groups.find((g) => g.id === inv.groupId);
+                    return (
+                      <View key={inv.id} style={s.switcherInviteRow}>
+                        <View style={s.switcherIcon}>
+                          <IcoBell color={C.warn} size={20} />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text style={[s.switcherName, { color: C.warn }]} numberOfLines={1}>
+                            {grp?.name ?? inv.inviteCode}
+                          </Text>
+                          <Text style={s.switcherMeta}>Invited to join</Text>
+                        </View>
+                        <Btn label="Join" size="sm" variant="green" onPress={() => joinCommittee(inv)} />
+                      </View>
+                    );
+                  })}
+                </>
+              )}
+            </ScrollView>
+            <View style={{ height: 16 }} />
+            <Btn label="Close" variant="outline" onPress={() => setCommitteeSwitcherOpen(false)} size="lg" full />
+            <View style={{ height: 20 }} />
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Savings Plan Screen ── */}
       {openPlan && (
         <SavingsPlanScreen
@@ -2482,7 +2569,7 @@ export default function App() {
           payments={data.payments}
           isCreator={openPlan.createdBy === currentUser.id}
           onBack={() => setOpenPlanId(null)}
-          onDelete={(id, name) => { setOpenPlanId(null); deleteKuri(id, name); }}
+          onDelete={deleteKuri}
           onSaveUpi={saveKuriUpi}
           onSubmitPayment={submitKuriPayment}
           onReviewPayment={reviewKuriPayment}
@@ -2750,4 +2837,15 @@ const s = StyleSheet.create({
   emptyState: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80, gap: 12 },
   emptyTitle: { color: C.text, fontSize: 17, fontWeight: "700" },
   emptyMeta: { color: C.textMuted, fontSize: 14, textAlign: "center" },
+
+  // Committee switcher
+  switcherDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.danger, marginLeft: 5, flexShrink: 0 },
+  switcherRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: C.border },
+  switcherRowActive: { backgroundColor: C.primaryLight + "44", borderRadius: 10 },
+  switcherIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.border, alignItems: "center", justifyContent: "center" },
+  switcherName: { color: C.text, fontSize: 15, fontWeight: "700" },
+  switcherMeta: { color: C.textMuted, fontSize: 12, marginTop: 2 },
+  switcherInviteRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: C.border },
+  switcherDivider: { paddingVertical: 10, paddingHorizontal: 4 },
+  switcherDividerText: { color: C.textDim, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8 },
 });
