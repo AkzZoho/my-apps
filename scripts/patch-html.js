@@ -39,9 +39,9 @@ if (!html.includes("apple-mobile-web-app-capable")) {
 //    so these apply before any JS runs — prevents white flash and footer gap on iOS PWA
 const bgStyle = [
   "html,body{background:#020817 !important;}",
-  // Fill the iOS home-indicator gap with the tab bar surface colour
-  "#tab-bar-safe{padding-bottom:env(safe-area-inset-bottom,0px) !important;}",
-  "#ios-safe-bottom{height:env(safe-area-inset-bottom,0px) !important;flex-shrink:0;}",
+  "#ios-safe-top{height:env(safe-area-inset-top,0px);flex-shrink:0;background:#0f172a;}",
+  "#ios-safe-bottom{height:env(safe-area-inset-bottom,0px);flex-shrink:0;background:#0f172a;}",
+  "#plan-safe-top{height:env(safe-area-inset-top,0px);background:#0f172a;}",
 ].join("\n      ") + "\n      ";
 
 if (!html.includes("background:#020817")) {

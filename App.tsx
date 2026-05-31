@@ -1057,14 +1057,15 @@ function CreateKuriModal({
 
 // ─── Kuri payment helpers ─────────────────────────────────────────────────────
 
-function getMonthRange(startDate: string): string[] {
+function getMonthRange(startDate: string, futurePad = 0): string[] {
   if (!startDate.match(/^\d{4}-\d{2}-\d{2}$/)) return [];
   const [sy, sm] = startDate.split("-").map(Number);
   const now = new Date();
-  const ey = now.getFullYear(), em = now.getMonth() + 1;
+  let ey = now.getFullYear(), em = now.getMonth() + 1 + futurePad;
+  while (em > 12) { em -= 12; ey++; }
   const months: string[] = [];
   let y = sy, m = sm;
-  while ((y < ey || (y === ey && m <= em)) && months.length < 36) {
+  while ((y < ey || (y === ey && m <= em)) && months.length < 48) {
     months.push(`${y}-${String(m).padStart(2, "0")}`);
     m++; if (m > 12) { m = 1; y++; }
   }
@@ -1256,12 +1257,24 @@ function SavingsPlanScreen({
   const [reviewingPaymentId, setReviewingPaymentId] = useState<string | null>(null);
   const [rejNotes, setRejNotes] = useState("");
 
-  const months = getMonthRange(kuri.startDate);
+  // Creator sees months up to now; members see up to 1 month ahead (advance payment)
+  const creatorMonths = getMonthRange(kuri.startDate);
+  const memberMonths = getMonthRange(kuri.startDate, 1);
+  const months = isCreator ? creatorMonths : memberMonths;
   const myPayments = payments.filter((p) => p.kuriId === kuri.id && p.userId === currentUser.id);
   const allPayments = payments.filter((p) => p.kuriId === kuri.id);
   const getMyPayment = (m: string) => myPayments.find((p) => p.month === m);
   const getMonthSubmissions = (m: string) => allPayments.filter((p) => p.month === m && p.status === "submitted");
   const getMonthApproved = (m: string) => allPayments.filter((p) => p.month === m && p.status === "approved").length;
+
+  // A month is payable if the previous month (for this user) is submitted or approved
+  const isMonthPayable = (m: string) => {
+    const idx = memberMonths.indexOf(m);
+    if (idx <= 0) return true; // first month always payable
+    const prev = memberMonths[idx - 1];
+    const prevPay = myPayments.find((p) => p.month === prev);
+    return prevPay?.status === "submitted" || prevPay?.status === "approved";
+  };
 
   const handleSaveUpi = async () => {
     if (!upiId.trim()) { Alert.alert("Required", "Enter your UPI ID."); return; }
@@ -1306,6 +1319,8 @@ function SavingsPlanScreen({
 
   return (
     <View style={s.planScreen}>
+      {/* Top safe-area spacer for plan screen (camera notch) */}
+      <View nativeID="plan-safe-top" style={{ backgroundColor: C.surface }} />
       {/* ── Header ── */}
       <View style={s.planHeader}>
         <TouchableOpacity onPress={onBack} style={s.planBack} activeOpacity={0.7} hitSlop={8}>
@@ -1557,11 +1572,15 @@ function SavingsPlanScreen({
             {months.map((m) => {
               const pay = getMyPayment(m);
               const isOpen = submitMonth === m;
+              const payable = isMonthPayable(m);
               return (
                 <View key={m}>
-                  <View style={s.monthRow}>
+                  <View style={[s.monthRow, !payable && { opacity: 0.45 }]}>
                     <View style={{ flex: 1 }}>
                       <Text style={s.monthLabel}>{fmtMonth(m)}</Text>
+                      {!payable && !pay && (
+                        <Text style={[s.monthSub, { color: C.textDim }]}>Pay previous month first</Text>
+                      )}
                       {pay && (
                         <Text style={[s.monthSub, { color: statusColor(pay.status) }]}>
                           {statusLabel(pay.status)} · Txn: {pay.transactionId}
@@ -1571,7 +1590,7 @@ function SavingsPlanScreen({
                         <Text style={[s.monthSub, { color: C.danger }]}>Reason: {pay.notes}</Text>
                       )}
                     </View>
-                    {(!pay || pay.status === "rejected") && (
+                    {(!pay || pay.status === "rejected") && payable && (
                       <TouchableOpacity
                         style={[s.payBtn, isOpen && s.payBtnOpen]}
                         onPress={() => {
@@ -1584,6 +1603,11 @@ function SavingsPlanScreen({
                           {isOpen ? "Cancel" : pay?.status === "rejected" ? "Resubmit" : "Submit receipt"}
                         </Text>
                       </TouchableOpacity>
+                    )}
+                    {(!pay || pay.status === "rejected") && !payable && (
+                      <View style={[s.statusPill, { backgroundColor: C.surface }]}>
+                        <Text style={[s.statusPillText, { color: C.textDim }]}>🔒 Locked</Text>
+                      </View>
                     )}
                     {pay && pay.status !== "rejected" && (
                       <View style={[s.statusPill, { backgroundColor: pay.status === "approved" ? C.greenDark : "#451a03" }]}>
@@ -1733,29 +1757,41 @@ export default function App() {
       style.id = "kuri-safe-style";
       style.textContent = `
         html, body { background: #020817 !important; }
-        #ios-safe-bottom { height: env(safe-area-inset-bottom, 0px) !important; flex-shrink: 0; background: #0f172a; }
+        #ios-safe-top  { flex-shrink: 0; background: #0f172a; }
+        #ios-safe-bottom { flex-shrink: 0; background: #0f172a; }
+        #plan-safe-top { background: #0f172a; }
       `;
       document.head.appendChild(style);
     }
-    // Measure actual safe area and set spacer height directly (CSS env() fallback)
-    const applyFooter = () => {
-      const tester = document.createElement("div");
-      tester.style.cssText = "position:fixed;height:env(safe-area-inset-bottom,0px);bottom:0;pointer-events:none;visibility:hidden;opacity:0";
-      document.body.appendChild(tester);
-      const h = tester.getBoundingClientRect().height || tester.offsetHeight || 0;
-      document.body.removeChild(tester);
-      // In iOS PWA standalone mode, fallback to 34px if env() returns 0
+    // Measure both safe-area insets and set spacer heights + CSS vars
+    const applySafeAreas = () => {
+      const measure = (css: string) => {
+        const el = document.createElement("div");
+        el.style.cssText = css + ";position:fixed;pointer-events:none;visibility:hidden;opacity:0";
+        document.body.appendChild(el);
+        const h = el.getBoundingClientRect().height || el.offsetHeight || 0;
+        document.body.removeChild(el);
+        return h;
+      };
       const isStandalone = !!(window.navigator as any).standalone || window.matchMedia("(display-mode: standalone)").matches;
-      const finalH = h > 0 ? h : isStandalone ? 34 : 0;
-      const spacer = document.getElementById("ios-safe-bottom");
-      if (spacer) { spacer.style.height = finalH + "px"; spacer.style.backgroundColor = "#0f172a"; }
+      const rawTop = measure("height:env(safe-area-inset-top,0px);top:0");
+      const rawBot = measure("height:env(safe-area-inset-bottom,0px);bottom:0");
+      const top = rawTop > 0 ? rawTop : isStandalone ? 47 : 0;
+      const bot = rawBot > 0 ? rawBot : isStandalone ? 34 : 0;
+      document.documentElement.style.setProperty("--sat", top + "px");
+      document.documentElement.style.setProperty("--sab", bot + "px");
+      const ts = document.getElementById("ios-safe-top");
+      if (ts) ts.style.height = top + "px";
+      const bs = document.getElementById("ios-safe-bottom");
+      if (bs) bs.style.height = bot + "px";
+      const ps = document.getElementById("plan-safe-top");
+      if (ps) ps.style.height = top + "px";
     };
-    applyFooter();
-    // Retry after layout settles (iOS PWA needs multiple attempts)
-    const t1 = setTimeout(applyFooter, 150);
-    const t2 = setTimeout(applyFooter, 600);
-    window.addEventListener("resize", applyFooter);
-    return () => { window.removeEventListener("resize", applyFooter); clearTimeout(t1); clearTimeout(t2); };
+    applySafeAreas();
+    const t1 = setTimeout(applySafeAreas, 150);
+    const t2 = setTimeout(applySafeAreas, 600);
+    window.addEventListener("resize", applySafeAreas);
+    return () => { window.removeEventListener("resize", applySafeAreas); clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
   // Restore login session from localStorage
@@ -2189,6 +2225,8 @@ export default function App() {
   return (
     <SafeAreaView style={s.safe}>
       <StatusBar style="light" />
+      {/* Top safe-area spacer: fills camera notch / status-bar area in iOS PWA */}
+      <View nativeID="ios-safe-top" style={{ backgroundColor: C.surface }} />
 
       <View style={s.header}>
         <View style={s.headerLeft}>
@@ -2701,7 +2739,7 @@ const s = StyleSheet.create({
   upiCopyText: { color: C.primary, fontSize: 12, fontWeight: "700" },
   upiQrThumb: { width: 44, height: 44, borderRadius: 6, backgroundColor: "#fff", flexShrink: 0 },
   planScreen: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: C.bg, zIndex: 50 },
-  planHeader: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 14, paddingTop: 52, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
+  planHeader: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
   planBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: C.border },
   planTitle: { color: C.text, fontSize: 17, fontWeight: "800" },
   planSubtitle: { color: C.textMuted, fontSize: 12, marginTop: 1 },
