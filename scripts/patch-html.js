@@ -35,12 +35,18 @@ if (!html.includes("apple-mobile-web-app-capable")) {
   );
 }
 
-// 3. Prepend dark background to the expo-reset <style> so the body is dark
-//    before any JS runs — prevents white flash on iOS PWA
-const bgStyle = "html,body{background:#020817 !important;}\n      ";
+// 3. Prepend dark background + safe-area CSS to the expo-reset <style>
+//    so these apply before any JS runs — prevents white flash and footer gap on iOS PWA
+const bgStyle = [
+  "html,body{background:#020817 !important;}",
+  // Fill the iOS home-indicator gap with the tab bar surface colour
+  "#tab-bar-safe{padding-bottom:env(safe-area-inset-bottom,0px) !important;}",
+  "#ios-safe-bottom{height:env(safe-area-inset-bottom,0px) !important;flex-shrink:0;}",
+].join("\n      ") + "\n      ";
+
 if (!html.includes("background:#020817")) {
   html = html.replace(/<style id="expo-reset">/, `<style id="expo-reset">${bgStyle}`);
 }
 
 fs.writeFileSync(htmlPath, html, "utf8");
-console.log("✓ Patched dist/index.html with iOS PWA meta tags and dark background");
+console.log("✓ Patched dist/index.html with iOS PWA meta tags, dark background, and safe-area CSS");

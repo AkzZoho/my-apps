@@ -1599,7 +1599,8 @@ export default function App() {
       style.id = "kuri-safe-style";
       style.textContent = `
         html, body { background: #020817 !important; }
-        #tab-bar-safe { padding-bottom: env(safe-area-inset-bottom, 4px) !important; }
+        #tab-bar-safe { padding-bottom: env(safe-area-inset-bottom, 0px) !important; }
+        #ios-safe-bottom { height: env(safe-area-inset-bottom, 0px) !important; flex-shrink: 0; }
       `;
       document.head.appendChild(style);
     }
@@ -2109,6 +2110,8 @@ export default function App() {
       </View>
 
       <TabBar active={activeTab} onChange={setActiveTab} />
+      {/* iOS safe-area fill — matches tab bar so the gap below home indicator isn't black */}
+      <View nativeID="ios-safe-bottom" style={{ backgroundColor: C.surface }} />
 
       {/* ── Create Savings Plan ── */}
       <CreateKuriModal
