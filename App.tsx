@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  PanResponder,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -628,7 +629,7 @@ function ChatTabView({ chatMessages, currentUser, chatText, onChangeText, onSend
             disabled={!chatText.trim()}
             activeOpacity={0.75}
           >
-            <Text style={s.sendIcon}>▶</Text>
+            <IcoSend color={C.primaryFg} size={18} />
           </TouchableOpacity>
         </View>
       </View>
@@ -708,10 +709,159 @@ function KuriTabView({ myKuris, currentUserId, onCreateOpen, onManageKuri }: Kur
   );
 }
 
+// ─── QR Crop Modal ────────────────────────────────────────────────────────────
+
+function QrCropModal({ uri, onDone, onCancel }: { uri: string; onDone: (b64: string) => void; onCancel: () => void }) {
+  const [containerLayout, setContainerLayout] = useState({ w: 0, h: 0 });
+  const [imageSize, setImageSize] = useState({ w: 1, h: 1 });
+  const [box, setBox] = useState({ x: 50, y: 50, size: 200 });
+  const boxRef = useRef({ x: 50, y: 50, size: 200 });
+  const containerRef = useRef({ w: 0, h: 0 });
+  const dragStart = useRef({ x: 50, y: 50, size: 200, isResize: false });
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const img = new (window as any).Image() as HTMLImageElement;
+    img.onload = () => setImageSize({ w: img.naturalWidth || 1, h: img.naturalHeight || 1 });
+    img.src = uri;
+  }, [uri]);
+
+  useEffect(() => {
+    if (containerLayout.w === 0 || initialized.current) return;
+    initialized.current = true;
+    containerRef.current = containerLayout;
+    const size = Math.min(containerLayout.w, containerLayout.h) * 0.72;
+    const newBox = { x: (containerLayout.w - size) / 2, y: (containerLayout.h - size) / 2, size };
+    boxRef.current = newBox;
+    setBox(newBox);
+  }, [containerLayout]);
+
+  const panHandler = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderGrant: (evt) => {
+      const { locationX, locationY } = evt.nativeEvent;
+      const bx = boxRef.current;
+      const isResize = locationX > bx.x + bx.size - 32 && locationY > bx.y + bx.size - 32;
+      dragStart.current = { ...bx, isResize };
+    },
+    onPanResponderMove: (_, g) => {
+      const cl = containerRef.current;
+      const ds = dragStart.current;
+      if (ds.isResize) {
+        const size = Math.max(60, Math.min(
+          Math.min(cl.w - ds.x, cl.h - ds.y),
+          ds.size + (g.dx + g.dy) / 2
+        ));
+        boxRef.current = { ...boxRef.current, size };
+      } else {
+        const x = Math.max(0, Math.min(cl.w - boxRef.current.size, ds.x + g.dx));
+        const y = Math.max(0, Math.min(cl.h - boxRef.current.size, ds.y + g.dy));
+        boxRef.current = { ...boxRef.current, x, y };
+      }
+      setBox({ ...boxRef.current });
+    },
+  })).current;
+
+  const doCrop = () => {
+    if (typeof document === "undefined") { onDone(uri); return; }
+    const img = new (window as any).Image() as HTMLImageElement;
+    img.onload = () => {
+      const cl = containerRef.current;
+      const bx = boxRef.current;
+      const scaleContain = Math.min(cl.w / img.naturalWidth, cl.h / img.naturalHeight);
+      const displayW = img.naturalWidth * scaleContain;
+      const displayH = img.naturalHeight * scaleContain;
+      const offX = (cl.w - displayW) / 2;
+      const offY = (cl.h - displayH) / 2;
+      const sx = Math.max(0, (bx.x - offX) / scaleContain);
+      const sy = Math.max(0, (bx.y - offY) / scaleContain);
+      const sw = Math.min(img.naturalWidth - sx, bx.size / scaleContain);
+      const sh = Math.min(img.naturalHeight - sy, bx.size / scaleContain);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(sw); canvas.height = Math.round(sh);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { onDone(uri); return; }
+      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, Math.round(sw), Math.round(sh));
+      onDone(canvas.toDataURL("image/png"));
+    };
+    img.onerror = () => onDone(uri);
+    img.src = uri;
+  };
+
+  const { x, y, size } = box;
+
+  return (
+    <Modal visible transparent animationType="slide">
+      <View style={{ flex: 1, backgroundColor: "#000" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12 }}>
+          <TouchableOpacity onPress={onCancel} hitSlop={12}>
+            <IcoX color="#fff" size={22} />
+          </TouchableOpacity>
+          <Text style={{ color: "#fff", fontSize: 17, fontWeight: "700", flex: 1, textAlign: "center" }}>Crop QR Code</Text>
+          <View style={{ width: 22 }} />
+        </View>
+        <Text style={{ color: "#aaa", textAlign: "center", fontSize: 13, marginBottom: 8 }}>
+          Drag to position · corner handle to resize
+        </Text>
+
+        <View
+          style={{ flex: 1 }}
+          onLayout={(e) => {
+            const { width: w, height: h } = e.nativeEvent.layout;
+            containerRef.current = { w, h };
+            setContainerLayout({ w, h });
+          }}
+          {...panHandler.panHandlers}
+        >
+          <Image
+            source={{ uri }}
+            style={{ position: "absolute", width: "100%", height: "100%" }}
+            resizeMode="contain"
+          />
+          {containerLayout.w > 0 && (
+            <>
+              <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: y, backgroundColor: "rgba(0,0,0,0.55)" }} />
+              <View style={{ position: "absolute", top: y + size, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.55)" }} />
+              <View style={{ position: "absolute", top: y, left: 0, width: x, height: size, backgroundColor: "rgba(0,0,0,0.55)" }} />
+              <View style={{ position: "absolute", top: y, left: x + size, right: 0, height: size, backgroundColor: "rgba(0,0,0,0.55)" }} />
+              <View style={{ position: "absolute", left: x, top: y, width: size, height: size, borderWidth: 2, borderColor: C.primary }}>
+                <View style={{ position: "absolute", top: -2, left: -2, width: 20, height: 20, borderTopWidth: 3, borderLeftWidth: 3, borderColor: C.primary }} />
+                <View style={{ position: "absolute", top: -2, right: -2, width: 20, height: 20, borderTopWidth: 3, borderRightWidth: 3, borderColor: C.primary }} />
+                <View style={{ position: "absolute", bottom: -2, left: -2, width: 20, height: 20, borderBottomWidth: 3, borderLeftWidth: 3, borderColor: C.primary }} />
+                <View style={{ position: "absolute", bottom: -14, right: -14, width: 28, height: 28, backgroundColor: C.primary, borderRadius: 14, alignItems: "center", justifyContent: "center" }}>
+                  <IcoPlus color="#fff" size={14} />
+                </View>
+              </View>
+            </>
+          )}
+        </View>
+
+        <View style={{ flexDirection: "row", padding: 16, paddingBottom: 36, gap: 12 }}>
+          <TouchableOpacity
+            style={{ flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: "#444", alignItems: "center" }}
+            onPress={() => onDone(uri)}
+          >
+            <Text style={{ color: "#fff", fontWeight: "600" }}>Use Full Image</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: C.primary, alignItems: "center" }}
+            onPress={doCrop}
+          >
+            <Text style={{ color: C.primaryFg, fontWeight: "700" }}>Crop QR</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 type CreateKuriModalProps = {
   visible: boolean;
   onClose: () => void;
   currentUserEmail: string;
+  onPickQr: (onDone: (b64: string) => void) => void;
   kuriName: string; setKuriName: (v: string) => void;
   kuriAmount: string; setKuriAmount: (v: string) => void;
   kuriDate: string; setKuriDate: (v: string) => void;
@@ -725,7 +875,7 @@ type CreateKuriModalProps = {
 };
 
 function CreateKuriModal({
-  visible, onClose, currentUserEmail,
+  visible, onClose, currentUserEmail, onPickQr,
   kuriName, setKuriName, kuriAmount, setKuriAmount,
   kuriDate, setKuriDate, kuriUpiId, setKuriUpiId,
   kuriQrBase64, setKuriQrBase64,
@@ -786,7 +936,7 @@ function CreateKuriModal({
             <Text style={[s.label, { marginBottom: 6 }]}>Payment QR <Text style={{ color: C.textDim, fontWeight: "400" }}>(optional)</Text></Text>
             <TouchableOpacity
               style={[s.uploadBox, { marginBottom: 16 }]}
-              onPress={() => webPickQrFile((b64) => setKuriQrBase64(b64))}
+              onPress={() => onPickQr((b64) => setKuriQrBase64(b64))}
               activeOpacity={0.75}
             >
               {kuriQrBase64 ? (
@@ -1083,11 +1233,12 @@ type KuriManageModalProps = {
   onSaveUpi: (kuriId: string, upiId: string, qr?: string) => Promise<void>;
   onSubmitPayment: (kuriId: string, month: string, txnId: string, amt: number, rcpt: string, rcptName: string) => Promise<void>;
   onReviewPayment: (paymentId: string, approved: boolean, notes?: string) => Promise<void>;
+  onPickQr: (onDone: (b64: string) => void) => void;
 };
 
 function KuriManageModal({
   visible, kuri, currentUser, members, payments, isCreator,
-  onClose, onDelete, onSaveUpi, onSubmitPayment, onReviewPayment,
+  onClose, onDelete, onSaveUpi, onSubmitPayment, onReviewPayment, onPickQr,
 }: KuriManageModalProps) {
   // Creator tabs: "receipts" | "settings"
   // Member: single view (no tabs)
@@ -1302,7 +1453,7 @@ function KuriManageModal({
                 <Text style={s.label}>Payment QR Code <Text style={{ color: C.textDim, fontWeight: "400", fontSize: 12 }}>(optional)</Text></Text>
                 <TouchableOpacity
                   style={s.uploadBox}
-                  onPress={() => webPickQrFile((b64) => setQrB64(b64))}
+                  onPress={() => onPickQr((b64) => setQrB64(b64))}
                   activeOpacity={0.75}
                 >
                   {qrB64 ? (
@@ -1564,6 +1715,10 @@ export default function App() {
   // Kuri manage modal
   const [managingKuriId, setManagingKuriId] = useState<string | null>(null);
   const [createKuriOpen, setCreateKuriOpen] = useState(false);
+  const [qrCropState, setQrCropState] = useState<{ uri: string; onDone: (b64: string) => void } | null>(null);
+  const pickQrWithCrop = useCallback((onDone: (b64: string) => void) => {
+    webPickFile("image/*", 2 * 1024 * 1024, (b64) => setQrCropState({ uri: b64, onDone }));
+  }, []);
 
   // Modals
   const [editOpen, setEditOpen] = useState(false);
@@ -1599,11 +1754,23 @@ export default function App() {
       style.id = "kuri-safe-style";
       style.textContent = `
         html, body { background: #020817 !important; }
-        #tab-bar-safe { padding-bottom: env(safe-area-inset-bottom, 0px) !important; }
-        #ios-safe-bottom { height: env(safe-area-inset-bottom, 0px) !important; flex-shrink: 0; }
+        #ios-safe-bottom { height: env(safe-area-inset-bottom, 0px) !important; flex-shrink: 0; background: #0f172a; }
       `;
       document.head.appendChild(style);
     }
+    // Measure actual safe area and set spacer height directly (CSS env() fallback)
+    const measureAndApply = () => {
+      const tester = document.createElement("div");
+      tester.style.cssText = "position:fixed;height:env(safe-area-inset-bottom,0px);bottom:0;pointer-events:none;visibility:hidden;opacity:0";
+      document.body.appendChild(tester);
+      const h = tester.getBoundingClientRect().height || tester.offsetHeight || 0;
+      document.body.removeChild(tester);
+      const spacer = document.getElementById("ios-safe-bottom");
+      if (spacer) { spacer.style.height = h + "px"; spacer.style.background = "#0f172a"; }
+    };
+    measureAndApply();
+    window.addEventListener("resize", measureAndApply);
+    return () => window.removeEventListener("resize", measureAndApply);
   }, []);
 
   // Restore login session from localStorage
@@ -2113,11 +2280,21 @@ export default function App() {
       {/* iOS safe-area fill — matches tab bar so the gap below home indicator isn't black */}
       <View nativeID="ios-safe-bottom" style={{ backgroundColor: C.surface }} />
 
+      {/* ── QR Crop ── */}
+      {qrCropState && (
+        <QrCropModal
+          uri={qrCropState.uri}
+          onDone={(b64) => { qrCropState.onDone(b64); setQrCropState(null); }}
+          onCancel={() => setQrCropState(null)}
+        />
+      )}
+
       {/* ── Create Savings Plan ── */}
       <CreateKuriModal
         visible={createKuriOpen}
         onClose={() => setCreateKuriOpen(false)}
         currentUserEmail={currentUser.email}
+        onPickQr={pickQrWithCrop}
         kuriName={kuriName} setKuriName={setKuriName}
         kuriAmount={kuriAmount} setKuriAmount={setKuriAmount}
         kuriDate={kuriDate} setKuriDate={setKuriDate}
@@ -2259,6 +2436,7 @@ export default function App() {
           onSaveUpi={saveKuriUpi}
           onSubmitPayment={submitKuriPayment}
           onReviewPayment={reviewKuriPayment}
+          onPickQr={pickQrWithCrop}
         />
       )}
 
