@@ -1823,6 +1823,7 @@ export default function App() {
       const withTimeout = <T,>(p: Promise<T>, fallback: T) =>
         Promise.race([p, new Promise<T>((res) => setTimeout(() => res(fallback), 8000))]);
       await withTimeout(kuriService.generateMonthlyInAppNotifications(), undefined);
+      await withTimeout(kuriService.deduplicateInvitations(), undefined);
       const loaded = await withTimeout(kuriService.getData(), emptyData);
       setData(loaded);
     } catch {

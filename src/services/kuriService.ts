@@ -221,6 +221,9 @@ export class KuriService {
     if (existingUser && group.members.some((m) => m.userId === existingUser.id)) {
       throw new Error("User is already a member.");
     }
+    if (data.invitations.some((i) => i.groupId === groupId && i.inviteeEmail === cleaned && i.status === "pending")) {
+      throw new Error("An invitation has already been sent to this email.");
+    }
 
     const invitation: Invitation = {
       id: makeId("inv"),
@@ -246,6 +249,21 @@ export class KuriService {
     group.members = group.members.filter((m) => m.userId !== memberUserId);
     await saveData(data);
     return group;
+  }
+
+  async deduplicateInvitations(): Promise<void> {
+    const data = await loadData();
+    const seen = new Set<string>();
+    const deduped = data.invitations.filter((inv) => {
+      const key = `${inv.groupId}:${inv.inviteeEmail.toLowerCase()}:${inv.status}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (deduped.length < data.invitations.length) {
+      data.invitations = deduped;
+      await saveData(data);
+    }
   }
 
   async deleteKuri(kuriId: string, actorUserId: string): Promise<void> {
