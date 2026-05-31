@@ -640,45 +640,27 @@ type NotifRule = { id: string; channel: "email" | "in_app"; beforeDays: string; 
 
 type KuriTabProps = {
   myKuris: KuriPlan[];
-  members: Member[];
-  currentUserEmail: string;
   currentUserId: string;
-  kuriName: string; setKuriName: (v: string) => void;
-  kuriAmount: string; setKuriAmount: (v: string) => void;
-  kuriDate: string; setKuriDate: (v: string) => void;
-  kuriUpiId: string; setKuriUpiId: (v: string) => void;
-  kuriQrBase64: string | undefined; setKuriQrBase64: (v: string | undefined) => void;
-  kuriParticipantIds: string[];
-  onOpenPicker: () => void;
-  notifRules: NotifRule[];
-  setNotifRules: React.Dispatch<React.SetStateAction<NotifRule[]>>;
-  onCreateKuri: () => void;
+  onCreateOpen: () => void;
   onManageKuri: (kuriId: string) => void;
 };
 
-function KuriTabView({
-  myKuris, currentUserEmail, currentUserId, kuriName, setKuriName, kuriAmount, setKuriAmount,
-  kuriDate, setKuriDate, kuriUpiId, setKuriUpiId, kuriQrBase64, setKuriQrBase64,
-  kuriParticipantIds, onOpenPicker,
-  notifRules, setNotifRules, onCreateKuri, onManageKuri,
-}: KuriTabProps) {
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const dateDisplay = formatDateDisplay(kuriDate);
-
-  const step = (ruleId: string, delta: number) =>
-    setNotifRules((p) => p.map((x) =>
-      x.id === ruleId ? { ...x, beforeDays: String(Math.max(0, Math.min(30, Number(x.beforeDays || "0") + delta))) } : x
-    ));
-
+function KuriTabView({ myKuris, currentUserId, onCreateOpen, onManageKuri }: KuriTabProps) {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
         style={s.tabContent}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {myKuris.length > 0 && (
+        {myKuris.length === 0 ? (
+          <View style={s.emptyState}>
+            <IcoKuri color={C.textDim} size={48} />
+            <Text style={s.emptyTitle}>No Savings Plans yet</Text>
+            <Text style={s.emptyMeta}>Tap the + button to create your first plan</Text>
+          </View>
+        ) : (
           <Panel title="Your Savings Plans" noPad>
             {myKuris.map((k) => (
               <View key={k.id} style={s.kuriCard}>
@@ -716,168 +698,202 @@ function KuriTabView({
             ))}
           </Panel>
         )}
+      </ScrollView>
 
-        <Panel title="Create Savings Plan" subtitle="Set up a new monthly savings rotation">
-          <Field label="Plan Name" value={kuriName} onChangeText={setKuriName} placeholder="e.g. Monthly Circle" />
-          <Field label="Contribution (₹ per month)" value={kuriAmount} onChangeText={setKuriAmount} placeholder="5000" keyboardType="numeric" />
+      {/* FAB */}
+      <TouchableOpacity style={s.fab} onPress={onCreateOpen} activeOpacity={0.8}>
+        <IcoPlus color="#fff" size={26} />
+      </TouchableOpacity>
+    </View>
+  );
+}
 
-          {/* Date picker trigger */}
-          <Text style={s.label}>Start Date</Text>
-          <TouchableOpacity style={s.dateTrigger} onPress={() => setDatePickerOpen(true)} activeOpacity={0.7}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Text style={{ fontSize: 20 }}>📅</Text>
-              <Text style={dateDisplay ? s.dateTriggerActive : s.dateTriggerPlaceholder}>
-                {dateDisplay || "Select start date"}
+type CreateKuriModalProps = {
+  visible: boolean;
+  onClose: () => void;
+  currentUserEmail: string;
+  kuriName: string; setKuriName: (v: string) => void;
+  kuriAmount: string; setKuriAmount: (v: string) => void;
+  kuriDate: string; setKuriDate: (v: string) => void;
+  kuriUpiId: string; setKuriUpiId: (v: string) => void;
+  kuriQrBase64: string | undefined; setKuriQrBase64: (v: string | undefined) => void;
+  kuriParticipantIds: string[];
+  onOpenPicker: () => void;
+  notifRules: NotifRule[];
+  setNotifRules: React.Dispatch<React.SetStateAction<NotifRule[]>>;
+  onCreateKuri: () => void;
+};
+
+function CreateKuriModal({
+  visible, onClose, currentUserEmail,
+  kuriName, setKuriName, kuriAmount, setKuriAmount,
+  kuriDate, setKuriDate, kuriUpiId, setKuriUpiId,
+  kuriQrBase64, setKuriQrBase64,
+  kuriParticipantIds, onOpenPicker,
+  notifRules, setNotifRules, onCreateKuri,
+}: CreateKuriModalProps) {
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const dateDisplay = formatDateDisplay(kuriDate);
+
+  const step = (ruleId: string, delta: number) =>
+    setNotifRules((p) => p.map((x) =>
+      x.id === ruleId ? { ...x, beforeDays: String(Math.max(0, Math.min(30, Number(x.beforeDays || "0") + delta))) } : x
+    ));
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={s.overlay}>
+        <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />
+        <View style={[s.sheet, { maxHeight: "90%" }]}>
+          <View style={s.handle} />
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4, paddingHorizontal: 2 }}>
+            <Text style={[s.sheetTitle, { flex: 1, marginBottom: 0 }]}>New Savings Plan</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={12} activeOpacity={0.7}>
+              <IcoX color={C.textMuted} size={20} />
+            </TouchableOpacity>
+          </View>
+          <Text style={[s.meta, { marginBottom: 16 }]}>Set up a monthly savings rotation for your committee</Text>
+
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <Field label="Plan Name" value={kuriName} onChangeText={setKuriName} placeholder="e.g. Monthly Circle" />
+            <Field label="Contribution (₹ per month)" value={kuriAmount} onChangeText={setKuriAmount} placeholder="5000" keyboardType="numeric" />
+
+            <Text style={s.label}>Start Date</Text>
+            <TouchableOpacity style={s.dateTrigger} onPress={() => setDatePickerOpen(true)} activeOpacity={0.7}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text style={{ fontSize: 20 }}>📅</Text>
+                <Text style={dateDisplay ? s.dateTriggerActive : s.dateTriggerPlaceholder}>
+                  {dateDisplay || "Select start date"}
+                </Text>
+              </View>
+              <Text style={{ color: C.primary, fontSize: 13, fontWeight: "600" }}>
+                {dateDisplay ? "Change" : "Pick"}
               </Text>
-            </View>
-            <Text style={{ color: C.primary, fontSize: 13, fontWeight: "600" }}>
-              {dateDisplay ? "Change" : "Pick"}
-            </Text>
-          </TouchableOpacity>
+            </TouchableOpacity>
 
-          {/* UPI ID (required) */}
-          <View style={{ marginBottom: 6 }}>
-            <Text style={s.label}>
-              Your UPI ID <Text style={{ color: C.danger }}>*</Text>
-            </Text>
+            <Text style={s.label}>Your UPI ID <Text style={{ color: C.danger }}>*</Text></Text>
             <TextInput
-              style={s.input}
+              style={[s.input, { marginBottom: 16 }]}
               value={kuriUpiId}
               onChangeText={setKuriUpiId}
-              placeholder="example@upi (members pay to this)"
+              placeholder="example@upi"
               placeholderTextColor={C.textDim}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="email-address"
             />
-          </View>
 
-          {/* QR Code upload */}
-          <Text style={[s.label, { marginBottom: 6 }]}>Payment QR Code <Text style={{ color: C.textDim, fontWeight: "400" }}>(optional)</Text></Text>
-          <TouchableOpacity
-            style={[s.uploadBox, { marginBottom: 14 }]}
-            onPress={() => webPickQrFile((b64) => setKuriQrBase64(b64))}
-            activeOpacity={0.75}
-          >
-            {kuriQrBase64 ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <Image source={{ uri: kuriQrBase64 }} style={{ width: 52, height: 52, borderRadius: 6, backgroundColor: "#fff" }} resizeMode="contain" />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.green, fontWeight: "700", fontSize: 13 }}>QR code uploaded</Text>
-                  <TouchableOpacity onPress={() => setKuriQrBase64(undefined)}>
-                    <Text style={{ color: C.danger, fontSize: 12, marginTop: 2 }}>✕ Remove</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <IcoQr color={C.textMuted} size={26} />
-                <Text style={{ color: C.textMuted, fontSize: 13 }}>Upload your QR code image (max 500KB)</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          {/* Participants */}
-          <Text style={s.label}>Participants</Text>
-          <TouchableOpacity style={s.pickerTrigger} onPress={onOpenPicker} activeOpacity={0.7}>
-            <Text style={kuriParticipantIds.length > 0 ? s.pickerTriggerActive : s.pickerTriggerPlaceholder}>
-              {kuriParticipantIds.length > 0 ? `${kuriParticipantIds.length} selected` : "Choose participants"}
-            </Text>
-            <Text style={{ color: C.primary, fontSize: 18 }}>›</Text>
-          </TouchableOpacity>
-
-          {/* Notification rules */}
-          <View style={s.ruleHeader}>
-            <Text style={s.label}>Notification Rules</Text>
+            <Text style={[s.label, { marginBottom: 6 }]}>Payment QR <Text style={{ color: C.textDim, fontWeight: "400" }}>(optional)</Text></Text>
             <TouchableOpacity
-              style={s.addRuleBtn}
-              activeOpacity={0.7}
-              onPress={() => setNotifRules((p) => [...p, { id: `r${Date.now()}`, channel: "in_app", beforeDays: "2", emails: "" }])}
+              style={[s.uploadBox, { marginBottom: 16 }]}
+              onPress={() => webPickQrFile((b64) => setKuriQrBase64(b64))}
+              activeOpacity={0.75}
             >
-              <Text style={s.addRuleBtnText}>+ Add Rule</Text>
-            </TouchableOpacity>
-          </View>
-
-          {notifRules.map((r) => (
-            <View key={r.id} style={s.ruleCard}>
-              {/* Channel chips */}
-              <View style={s.ruleChipRow}>
-                {([
-                  { val: "in_app", label: "📱 In-App" },
-                  { val: "email",  label: "📧 Email"  },
-                ] as const).map((opt) => (
-                  <TouchableOpacity
-                    key={opt.val}
-                    style={[s.ruleChip, r.channel === opt.val && s.ruleChipOn]}
-                    onPress={() => setNotifRules((p) => p.map((x) => x.id === r.id ? { ...x, channel: opt.val } : x))}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[s.ruleChipText, r.channel === opt.val && s.ruleChipTextOn]}>
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Days stepper */}
-              <View style={s.ruleDaysRow}>
-                <Text style={s.ruleDaysText}>Notify </Text>
-                <TouchableOpacity style={s.stepBtn} onPress={() => step(r.id, -1)} activeOpacity={0.7}>
-                  <Text style={s.stepBtnText}>−</Text>
-                </TouchableOpacity>
-                <View style={s.stepValBox}>
-                  <Text style={s.stepValText}>{r.beforeDays || "0"}</Text>
+              {kuriQrBase64 ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <Image source={{ uri: kuriQrBase64 }} style={{ width: 52, height: 52, borderRadius: 6, backgroundColor: "#fff" }} resizeMode="contain" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: C.green, fontWeight: "700", fontSize: 13 }}>QR uploaded</Text>
+                    <TouchableOpacity onPress={() => setKuriQrBase64(undefined)}>
+                      <Text style={{ color: C.danger, fontSize: 12, marginTop: 2 }}>✕ Remove</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <TouchableOpacity style={s.stepBtn} onPress={() => step(r.id, 1)} activeOpacity={0.7}>
-                  <Text style={s.stepBtnText}>+</Text>
-                </TouchableOpacity>
-                <Text style={s.ruleDaysText}> days before</Text>
-              </View>
-
-              {/* What this rule does */}
-              <View style={s.ruleInfoBox}>
-                {r.channel === "in_app" ? (
-                  <Text style={s.ruleInfoText}>🔔 Notification appears in your bell icon</Text>
-                ) : (
-                  <Text style={s.ruleInfoText}>📧 Email sent to: <Text style={{ color: C.text, fontWeight: "700" }}>{currentUserEmail}</Text></Text>
-                )}
-              </View>
-
-              {/* Extra recipients if email */}
-              {r.channel === "email" && (
-                <View style={{ marginTop: 10 }}>
-                  <Text style={[s.label, { fontSize: 12, marginBottom: 5 }]}>
-                    Additional recipients{" "}
-                    <Text style={{ fontWeight: "400", color: C.textDim }}>(optional)</Text>
-                  </Text>
-                  <TextInput
-                    style={s.input}
-                    value={r.emails}
-                    onChangeText={(v) => setNotifRules((p) => p.map((x) => x.id === r.id ? { ...x, emails: v } : x))}
-                    placeholder="other@email.com, another@email.com"
-                    placeholderTextColor={C.textDim}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
+              ) : (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <IcoQr color={C.textMuted} size={26} />
+                  <Text style={{ color: C.textMuted, fontSize: 13 }}>Upload QR code image</Text>
                 </View>
               )}
+            </TouchableOpacity>
 
-              {/* Remove rule */}
+            <Text style={s.label}>Participants</Text>
+            <TouchableOpacity style={[s.pickerTrigger, { marginBottom: 16 }]} onPress={onOpenPicker} activeOpacity={0.7}>
+              <Text style={kuriParticipantIds.length > 0 ? s.pickerTriggerActive : s.pickerTriggerPlaceholder}>
+                {kuriParticipantIds.length > 0 ? `${kuriParticipantIds.length} selected` : "Choose participants"}
+              </Text>
+              <Text style={{ color: C.primary, fontSize: 18 }}>›</Text>
+            </TouchableOpacity>
+
+            <View style={s.ruleHeader}>
+              <Text style={s.label}>Notification Rules</Text>
               <TouchableOpacity
-                style={s.ruleRemoveBtn}
-                onPress={() => setNotifRules((p) => p.filter((x) => x.id !== r.id))}
+                style={s.addRuleBtn}
                 activeOpacity={0.7}
+                onPress={() => setNotifRules((p) => [...p, { id: `r${Date.now()}`, channel: "in_app", beforeDays: "2", emails: "" }])}
               >
-                <Text style={s.ruleRemoveText}>✕ Remove rule</Text>
+                <Text style={s.addRuleBtnText}>+ Add Rule</Text>
               </TouchableOpacity>
             </View>
-          ))}
 
-          <View style={{ height: 6 }} />
-          <Btn label="Create Savings Plan" onPress={onCreateKuri} size="lg" full />
-        </Panel>
-      </ScrollView>
+            {notifRules.map((r) => (
+              <View key={r.id} style={s.ruleCard}>
+                <View style={s.ruleChipRow}>
+                  {([
+                    { val: "in_app", label: "📱 In-App" },
+                    { val: "email",  label: "📧 Email"  },
+                  ] as const).map((opt) => (
+                    <TouchableOpacity
+                      key={opt.val}
+                      style={[s.ruleChip, r.channel === opt.val && s.ruleChipOn]}
+                      onPress={() => setNotifRules((p) => p.map((x) => x.id === r.id ? { ...x, channel: opt.val } : x))}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[s.ruleChipText, r.channel === opt.val && s.ruleChipTextOn]}>{opt.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={s.ruleDaysRow}>
+                  <Text style={s.ruleDaysText}>Notify </Text>
+                  <TouchableOpacity style={s.stepBtn} onPress={() => step(r.id, -1)} activeOpacity={0.7}>
+                    <Text style={s.stepBtnText}>−</Text>
+                  </TouchableOpacity>
+                  <View style={s.stepValBox}>
+                    <Text style={s.stepValText}>{r.beforeDays || "0"}</Text>
+                  </View>
+                  <TouchableOpacity style={s.stepBtn} onPress={() => step(r.id, 1)} activeOpacity={0.7}>
+                    <Text style={s.stepBtnText}>+</Text>
+                  </TouchableOpacity>
+                  <Text style={s.ruleDaysText}> days before</Text>
+                </View>
+                <View style={s.ruleInfoBox}>
+                  {r.channel === "in_app" ? (
+                    <Text style={s.ruleInfoText}>🔔 Notification appears in your bell icon</Text>
+                  ) : (
+                    <Text style={s.ruleInfoText}>📧 Email sent to: <Text style={{ color: C.text, fontWeight: "700" }}>{currentUserEmail}</Text></Text>
+                  )}
+                </View>
+                {r.channel === "email" && (
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={[s.label, { fontSize: 12, marginBottom: 5 }]}>Additional recipients <Text style={{ fontWeight: "400", color: C.textDim }}>(optional)</Text></Text>
+                    <TextInput
+                      style={s.input}
+                      value={r.emails}
+                      onChangeText={(v) => setNotifRules((p) => p.map((x) => x.id === r.id ? { ...x, emails: v } : x))}
+                      placeholder="other@email.com, another@email.com"
+                      placeholderTextColor={C.textDim}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+                )}
+                <TouchableOpacity
+                  style={s.ruleRemoveBtn}
+                  onPress={() => setNotifRules((p) => p.filter((x) => x.id !== r.id))}
+                  activeOpacity={0.7}
+                >
+                  <Text style={s.ruleRemoveText}>✕ Remove rule</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            <View style={{ height: 6 }} />
+            <Btn label="Create Savings Plan" onPress={onCreateKuri} size="lg" full />
+            <View style={{ height: 24 }} />
+          </ScrollView>
+        </View>
+      </View>
 
       <DatePickerModal
         visible={datePickerOpen}
@@ -885,7 +901,7 @@ function KuriTabView({
         onChange={setKuriDate}
         onClose={() => setDatePickerOpen(false)}
       />
-    </View>
+    </Modal>
   );
 }
 
@@ -1547,6 +1563,7 @@ export default function App() {
 
   // Kuri manage modal
   const [managingKuriId, setManagingKuriId] = useState<string | null>(null);
+  const [createKuriOpen, setCreateKuriOpen] = useState(false);
 
   // Modals
   const [editOpen, setEditOpen] = useState(false);
@@ -1791,6 +1808,7 @@ export default function App() {
       setKuriName(""); setKuriAmount(""); setKuriDate(""); setKuriParticipantIds([]);
       setKuriUpiId(""); setKuriQrBase64(undefined);
       setNotifRules([{ id: "r1", channel: "in_app", beforeDays: "2", emails: "" }]);
+      setCreateKuriOpen(false);
       await refresh();
       Alert.alert("Created!", "Savings plan created successfully.");
     } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed."); }
@@ -2083,24 +2101,30 @@ export default function App() {
         {activeTab === "kuri" && (
           <KuriTabView
             myKuris={myKuris}
-            members={members}
-            currentUserEmail={currentUser.email}
             currentUserId={currentUser.id}
-            kuriName={kuriName} setKuriName={setKuriName}
-            kuriAmount={kuriAmount} setKuriAmount={setKuriAmount}
-            kuriDate={kuriDate} setKuriDate={setKuriDate}
-            kuriUpiId={kuriUpiId} setKuriUpiId={setKuriUpiId}
-            kuriQrBase64={kuriQrBase64} setKuriQrBase64={setKuriQrBase64}
-            kuriParticipantIds={kuriParticipantIds}
-            onOpenPicker={() => setParticipantPickerOpen(true)}
-            notifRules={notifRules} setNotifRules={setNotifRules}
-            onCreateKuri={createKuri}
+            onCreateOpen={() => setCreateKuriOpen(true)}
             onManageKuri={setManagingKuriId}
           />
         )}
       </View>
 
       <TabBar active={activeTab} onChange={setActiveTab} />
+
+      {/* ── Create Savings Plan ── */}
+      <CreateKuriModal
+        visible={createKuriOpen}
+        onClose={() => setCreateKuriOpen(false)}
+        currentUserEmail={currentUser.email}
+        kuriName={kuriName} setKuriName={setKuriName}
+        kuriAmount={kuriAmount} setKuriAmount={setKuriAmount}
+        kuriDate={kuriDate} setKuriDate={setKuriDate}
+        kuriUpiId={kuriUpiId} setKuriUpiId={setKuriUpiId}
+        kuriQrBase64={kuriQrBase64} setKuriQrBase64={setKuriQrBase64}
+        kuriParticipantIds={kuriParticipantIds}
+        onOpenPicker={() => setParticipantPickerOpen(true)}
+        notifRules={notifRules} setNotifRules={setNotifRules}
+        onCreateKuri={createKuri}
+      />
 
       {/* ── Edit Committee ── */}
       <Modal visible={editOpen} transparent animationType="slide">
@@ -2513,4 +2537,8 @@ const s = StyleSheet.create({
   upiQrThumb: { width: 44, height: 44, borderRadius: 6, backgroundColor: "#fff", flexShrink: 0 },
   upiDeepLinkBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.primary, borderRadius: 12, paddingVertical: 12, marginBottom: 12 },
   upiDeepLinkText: { color: C.primaryFg, fontSize: 14, fontWeight: "700" },
+  fab: { position: "absolute", bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: C.primary, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
+  emptyState: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80, gap: 12 },
+  emptyTitle: { color: C.text, fontSize: 17, fontWeight: "700" },
+  emptyMeta: { color: C.textMuted, fontSize: 14, textAlign: "center" },
 });
