@@ -360,7 +360,7 @@ const TABS: TabDef[] = [
   { id: "committee", label: "Committee", Icon: ({ color, size }) => <IcoCommittee color={color} size={size} /> },
   { id: "members",   label: "Members",   Icon: ({ color, size }) => <IcoMembers   color={color} size={size} /> },
   { id: "chat",      label: "Chat",      Icon: ({ color, size }) => <IcoChat      color={color} size={size} /> },
-  { id: "kuri",      label: "Kuri",      Icon: ({ color, size }) => <IcoKuri      color={color} size={size} /> },
+  { id: "kuri",      label: "Savings",   Icon: ({ color, size }) => <IcoKuri      color={color} size={size} /> },
 ];
 
 function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
@@ -421,7 +421,7 @@ function CommitteeTabView({ committee, members, myRole, kuris, msgCount, pending
         <View style={s.statsRow}>
           {[
             { val: members.length, lbl: "Members" },
-            { val: kuris.length,   lbl: "Kuri Plans" },
+            { val: kuris.length,   lbl: "Savings Plans" },
             { val: msgCount,       lbl: "Messages" },
           ].map((st, i) => (
             <React.Fragment key={st.lbl}>
@@ -445,7 +445,7 @@ function CommitteeTabView({ committee, members, myRole, kuris, msgCount, pending
       </View>
 
       {kuris.length > 0 && (
-        <Panel title="Kuri Plans" noPad>
+        <Panel title="Savings Plans" noPad>
           {kuris.map((k) => (
             <View key={k.id} style={s.rowItem}>
               <View style={s.rowItemIcon}><Text style={{ fontSize: 16 }}>💰</Text></View>
@@ -679,7 +679,7 @@ function KuriTabView({
         keyboardShouldPersistTaps="handled"
       >
         {myKuris.length > 0 && (
-          <Panel title="Your Kuri Plans" noPad>
+          <Panel title="Your Savings Plans" noPad>
             {myKuris.map((k) => (
               <View key={k.id} style={s.kuriCard}>
                 <View style={s.kuriCardTop}>
@@ -717,7 +717,7 @@ function KuriTabView({
           </Panel>
         )}
 
-        <Panel title="Create Kuri Plan" subtitle="Set up a new savings rotation">
+        <Panel title="Create Savings Plan" subtitle="Set up a new monthly savings rotation">
           <Field label="Plan Name" value={kuriName} onChangeText={setKuriName} placeholder="e.g. Monthly Circle" />
           <Field label="Contribution (₹ per month)" value={kuriAmount} onChangeText={setKuriAmount} placeholder="5000" keyboardType="numeric" />
 
@@ -756,7 +756,7 @@ function KuriTabView({
           <Text style={[s.label, { marginBottom: 6 }]}>Payment QR Code <Text style={{ color: C.textDim, fontWeight: "400" }}>(optional)</Text></Text>
           <TouchableOpacity
             style={[s.uploadBox, { marginBottom: 14 }]}
-            onPress={() => webPickFile("image/*", 500 * 1024, (b64) => setKuriQrBase64(b64))}
+            onPress={() => webPickQrFile((b64) => setKuriQrBase64(b64))}
             activeOpacity={0.75}
           >
             {kuriQrBase64 ? (
@@ -875,7 +875,7 @@ function KuriTabView({
           ))}
 
           <View style={{ height: 6 }} />
-          <Btn label="Create Kuri Plan" onPress={onCreateKuri} size="lg" full />
+          <Btn label="Create Savings Plan" onPress={onCreateKuri} size="lg" full />
         </Panel>
       </ScrollView>
 
@@ -959,6 +959,98 @@ function webPickFile(
     r.readAsDataURL(file);
   };
   inp.click();
+}
+
+// ─── QR crop via jsQR + Canvas ────────────────────────────────────────────────
+
+async function cropQrFromImage(dataUrl: string): Promise<{ cropped: string; found: boolean }> {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return { cropped: dataUrl, found: false };
+  }
+  return new Promise((resolve) => {
+    const img = new (window as any).Image() as HTMLImageElement;
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { resolve({ cropped: dataUrl, found: false }); return; }
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        // Dynamic import so jsqr doesn't block the initial bundle
+        import("jsqr").then(({ default: jsQR }) => {
+          const code = jsQR(imageData.data as unknown as Uint8ClampedArray, imageData.width, imageData.height);
+          const fallbackSquareCrop = () => {
+            const size = Math.min(canvas.width, canvas.height);
+            const cc = document.createElement("canvas");
+            cc.width = size; cc.height = size;
+            const cx = cc.getContext("2d")!;
+            cx.fillStyle = "#fff"; cx.fillRect(0, 0, size, size);
+            cx.drawImage(img, (canvas.width - size) / 2, (canvas.height - size) / 2, size, size, 0, 0, size, size);
+            return cc.toDataURL("image/png");
+          };
+
+          if (code) {
+            const pts = [
+              code.location.topLeftCorner, code.location.topRightCorner,
+              code.location.bottomRightCorner, code.location.bottomLeftCorner,
+            ];
+            const minX = Math.min(...pts.map((p) => p.x));
+            const minY = Math.min(...pts.map((p) => p.y));
+            const maxX = Math.max(...pts.map((p) => p.x));
+            const maxY = Math.max(...pts.map((p) => p.y));
+            const qW = maxX - minX, qH = maxY - minY;
+            const pad = Math.max(12, Math.round(Math.min(qW, qH) * 0.12));
+            const x = Math.max(0, Math.round(minX - pad));
+            const y = Math.max(0, Math.round(minY - pad));
+            const w = Math.min(canvas.width - x, Math.round(qW + pad * 2));
+            const h = Math.min(canvas.height - y, Math.round(qH + pad * 2));
+            const size = Math.max(w, h);
+            const cc = document.createElement("canvas");
+            cc.width = size; cc.height = size;
+            const cx = cc.getContext("2d")!;
+            cx.fillStyle = "#fff"; cx.fillRect(0, 0, size, size);
+            cx.drawImage(canvas, x, y, w, h, 0, 0, w, h);
+            resolve({ cropped: cc.toDataURL("image/png"), found: true });
+          } else {
+            resolve({ cropped: fallbackSquareCrop(), found: false });
+          }
+        }).catch(() => resolve({ cropped: dataUrl, found: false }));
+      } catch {
+        resolve({ cropped: dataUrl, found: false });
+      }
+    };
+    img.onerror = () => resolve({ cropped: dataUrl, found: false });
+    img.src = dataUrl;
+  });
+}
+
+function webPickQrFile(onDone: (b64: string) => void) {
+  webPickFile("image/*", 1024 * 1024, (b64) => {
+    if (Platform.OS !== "web") { onDone(b64); return; }
+    cropQrFromImage(b64).then(({ cropped, found }) => {
+      if (!found) {
+        Alert.alert(
+          "QR saved",
+          "QR code not auto-detected — image was center-cropped to a square. Make sure the QR is clearly visible.",
+          [{ text: "OK" }]
+        );
+      }
+      onDone(cropped);
+    }).catch(() => onDone(b64));
+  });
+}
+
+// ─── UPI deep link ────────────────────────────────────────────────────────────
+
+function openUpiDeepLink(upiId: string, name: string, amount: number) {
+  if (typeof window === "undefined") return;
+  const url = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(name)}&am=${amount}&cu=INR&tn=${encodeURIComponent("Savings Plan Payment")}`;
+  // On mobile browsers this opens the UPI app chooser.
+  // On desktop it will silently fail — that's fine, desktop users copy the ID.
+  window.location.href = url;
 }
 
 // ─── Kuri Manage Modal ────────────────────────────────────────────────────────
@@ -1107,19 +1199,29 @@ function KuriManageModal({
 
           {/* ── UPI banner for members ── */}
           {!isCreator && kuri.upiId && (
-            <View style={s.upiPayBanner}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.upiPayLabel}>Pay to</Text>
-                <Text style={s.upiPayValue} selectable numberOfLines={1}>{kuri.upiId}</Text>
+            <>
+              <View style={s.upiPayBanner}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.upiPayLabel}>Pay to</Text>
+                  <Text style={s.upiPayValue} selectable numberOfLines={1}>{kuri.upiId}</Text>
+                </View>
+                <TouchableOpacity style={s.upiCopyBtn} onPress={copyUpi} activeOpacity={0.7}>
+                  <IcoCopy color={C.primary} size={16} />
+                  <Text style={s.upiCopyText}>Copy</Text>
+                </TouchableOpacity>
+                {kuri.upiQrBase64 && (
+                  <Image source={{ uri: kuri.upiQrBase64 }} style={s.upiQrThumb} resizeMode="contain" />
+                )}
               </View>
-              <TouchableOpacity style={s.upiCopyBtn} onPress={copyUpi} activeOpacity={0.7}>
-                <IcoCopy color={C.primary} size={16} />
-                <Text style={s.upiCopyText}>Copy</Text>
+              <TouchableOpacity
+                style={s.upiDeepLinkBtn}
+                onPress={() => openUpiDeepLink(kuri.upiId!, kuri.name, kuri.contributionAmount)}
+                activeOpacity={0.75}
+              >
+                <IcoKuri color={C.primaryFg} size={18} />
+                <Text style={s.upiDeepLinkText}>Pay with UPI App</Text>
               </TouchableOpacity>
-              {kuri.upiQrBase64 && (
-                <Image source={{ uri: kuri.upiQrBase64 }} style={s.upiQrThumb} resizeMode="contain" />
-              )}
-            </View>
+            </>
           )}
 
           {/* ── Content ScrollView (fixed maxHeight, never flex:1) ── */}
@@ -1184,7 +1286,7 @@ function KuriManageModal({
                 <Text style={s.label}>Payment QR Code <Text style={{ color: C.textDim, fontWeight: "400", fontSize: 12 }}>(optional)</Text></Text>
                 <TouchableOpacity
                   style={s.uploadBox}
-                  onPress={() => webPickFile("image/*", 500 * 1024, (b64) => setQrB64(b64))}
+                  onPress={() => webPickQrFile((b64) => setQrB64(b64))}
                   activeOpacity={0.75}
                 >
                   {qrB64 ? (
@@ -1690,7 +1792,7 @@ export default function App() {
       setKuriUpiId(""); setKuriQrBase64(undefined);
       setNotifRules([{ id: "r1", channel: "in_app", beforeDays: "2", emails: "" }]);
       await refresh();
-      Alert.alert("Created!", "Kuri plan created successfully.");
+      Alert.alert("Created!", "Savings plan created successfully.");
     } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed."); }
   };
 
@@ -1734,7 +1836,7 @@ export default function App() {
   };
 
   const deleteKuri = (kuriId: string, kuriName: string) => {
-    Alert.alert("Delete Kuri Plan", `Delete "${kuriName}"? This cannot be undone.`, [
+    Alert.alert("Delete Savings Plan", `Delete "${kuriName}"? This cannot be undone.`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete", style: "destructive", onPress: async () => {
@@ -2409,4 +2511,6 @@ const s = StyleSheet.create({
   upiCopyBtn: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: C.bg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: C.primaryMid },
   upiCopyText: { color: C.primary, fontSize: 12, fontWeight: "700" },
   upiQrThumb: { width: 44, height: 44, borderRadius: 6, backgroundColor: "#fff", flexShrink: 0 },
+  upiDeepLinkBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.primary, borderRadius: 12, paddingVertical: 12, marginBottom: 12 },
+  upiDeepLinkText: { color: C.primaryFg, fontSize: 14, fontWeight: "700" },
 });
