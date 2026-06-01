@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
 import '../models.dart';
 import '../providers/providers.dart';
-import '../services/data_service.dart';
 import '../widgets/common.dart';
 import 'kuri_detail_screen.dart';
 import 'create_kuri_screen.dart';
@@ -72,6 +71,13 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
           appBar: AppBar(
             title: const Text('Kuri'),
             actions: [
+              IconButton(
+                icon: Icon(ref.watch(themeModeProvider) == ThemeMode.dark
+                    ? Icons.light_mode_rounded
+                    : Icons.dark_mode_rounded),
+                onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
+                tooltip: 'Toggle theme',
+              ),
               Stack(
                 alignment: Alignment.center,
                 children: [

@@ -1,7 +1,38 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models.dart';
 import '../services/data_service.dart';
+
+// ─── Theme Mode ─────────────────────────────────────────────────────────────
+
+class ThemeModeNotifier extends StateNotifier<ThemeMode> {
+  ThemeModeNotifier() : super(ThemeMode.system);
+
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final val = prefs.getString('theme_mode') ?? 'system';
+    state = val == 'light' ? ThemeMode.light : val == 'dark' ? ThemeMode.dark : ThemeMode.system;
+  }
+
+  Future<void> setMode(ThemeMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('theme_mode', mode == ThemeMode.light ? 'light' : mode == ThemeMode.dark ? 'dark' : 'system');
+    state = mode;
+  }
+
+  void toggle() {
+    if (state == ThemeMode.dark) {
+      setMode(ThemeMode.light);
+    } else {
+      setMode(ThemeMode.dark);
+    }
+  }
+}
+
+final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>(
+  (ref) => ThemeModeNotifier(),
+);
 
 // ─── Current User ───────────────────────────────────────────────────────────
 

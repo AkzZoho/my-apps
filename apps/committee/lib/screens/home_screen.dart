@@ -15,8 +15,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  bool _dataLoaded = false;
-
   @override
   void initState() {
     super.initState();
@@ -31,7 +29,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await ref.read(currentUserProvider.notifier).loadFromPrefs(data);
     }
     await ref.read(lastSeenProvider.notifier).load();
-    if (mounted) setState(() => _dataLoaded = true);
   }
 
   @override
@@ -69,22 +66,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 !myGroups.any((g) => g.id == inv.groupId))
             .toList();
 
-        // Total unread chat messages across all my groups
-        int totalUnread = 0;
-        for (final group in myGroups) {
-          final ls = lastSeen[group.id];
-          final unread = data.chatMessages.where((m) {
-            if (m.groupId != group.id) return false;
-            if (ls == null) return true;
-            try {
-              return DateTime.parse(m.createdAt).isAfter(ls);
-            } catch (_) {
-              return false;
-            }
-          }).length;
-          totalUnread += unread;
-        }
-
         final activeIdx = ref.watch(activeCommitteeIndexProvider);
         final safeIdx = myGroups.isEmpty ? 0 : (activeIdx < myGroups.length ? activeIdx : 0);
 
@@ -93,6 +74,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           appBar: AppBar(
             title: const Text('Committee'),
             actions: [
+              IconButton(
+                icon: Icon(ref.watch(themeModeProvider) == ThemeMode.dark
+                    ? Icons.light_mode_rounded
+                    : Icons.dark_mode_rounded),
+                onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
+                tooltip: 'Toggle theme',
+              ),
               Stack(
                 alignment: Alignment.center,
                 children: [

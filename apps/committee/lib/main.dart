@@ -13,56 +13,37 @@ void main() async {
   runApp(const ProviderScope(child: CommitteeApp()));
 }
 
-class CommitteeApp extends ConsumerWidget {
+class CommitteeApp extends ConsumerStatefulWidget {
   const CommitteeApp({super.key});
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return MaterialApp(
-      title: 'Committee',
-      theme: buildAppTheme(),
-      debugShowCheckedModeBanner: false,
-      home: const _AppRoot(),
-    );
-  }
+  ConsumerState<CommitteeApp> createState() => _CommitteeAppState();
 }
 
-class _AppRoot extends ConsumerStatefulWidget {
-  const _AppRoot();
-
-  @override
-  ConsumerState<_AppRoot> createState() => _AppRootState();
-}
-
-class _AppRootState extends ConsumerState<_AppRoot> {
-  bool _initialized = false;
-
+class _CommitteeAppState extends ConsumerState<CommitteeApp> {
   @override
   void initState() {
     super.initState();
-    _init();
-  }
-
-  Future<void> _init() async {
-    final notifier = ref.read(appDataProvider.notifier);
-    await notifier.load();
-    final data = ref.read(appDataProvider).valueOrNull;
-    if (data != null) {
-      await ref.read(currentUserProvider.notifier).loadFromPrefs(data);
-    }
-    await ref.read(lastSeenProvider.notifier).load();
-    if (mounted) setState(() => _initialized = true);
+    Future.microtask(() async {
+      await ref.read(themeModeProvider.notifier).load();
+      await ref.read(appDataProvider.notifier).load();
+      final data = ref.read(appDataProvider).valueOrNull;
+      if (data != null) await ref.read(currentUserProvider.notifier).loadFromPrefs(data);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_initialized) {
-      return const Scaffold(
-        backgroundColor: bgColor,
-        body: Center(child: CircularProgressIndicator(color: primaryColor)),
-      );
-    }
+    final themeMode = ref.watch(themeModeProvider);
     final user = ref.watch(currentUserProvider);
-    return user != null ? const HomeScreen() : const AuthScreen();
+    return MaterialApp(
+      title: 'Committee',
+      theme: buildLightTheme(),
+      darkTheme: buildDarkTheme(),
+      themeMode: themeMode,
+      debugShowCheckedModeBanner: false,
+      home: user == null
+          ? const AuthScreen(appName: 'Committee', appSubtitle: 'Manage your savings committees')
+          : const HomeScreen(),
+    );
   }
 }
