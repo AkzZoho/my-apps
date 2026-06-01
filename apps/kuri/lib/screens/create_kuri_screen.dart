@@ -21,7 +21,7 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
   final _participantEmailCtrl = TextEditingController();
 
   DateTime _startDate = DateTime.now();
-  List<AppUser> _selectedParticipants = [];
+  final List<AppUser> _selectedParticipants = [];
   String? _qrBase64;
   String? _qrFileName;
   bool _loading = false;
