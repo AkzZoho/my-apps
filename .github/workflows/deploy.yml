@@ -1,9 +1,12 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages (React Native - DISABLED)
 
 on:
-  push:
-    branches: [claude/committee-app-ui-testing-YTw60, main]
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Type YES to force RN deploy'
+        required: true
+        default: 'NO'
 
 permissions:
   contents: write
