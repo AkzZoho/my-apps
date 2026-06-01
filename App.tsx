@@ -20,7 +20,7 @@ import { kuriService } from "./src/services/kuriService";
 import { AppData, ChatMessage, Group, Invitation, KuriPayment, KuriPlan, User } from "./src/types";
 import {
   AppLogo, IcoArrow, IcoBell, IcoCalendar, IcoChat, IcoCheck, IcoChevronDown, IcoCopy, IcoEdit,
-  IcoImage, IcoKuri, IcoCommittee, IcoMembers, IcoMore, IcoPlus, IcoQr,
+  IcoHome, IcoImage, IcoInvite, IcoKuri, IcoCommittee, IcoMembers, IcoMore, IcoPlus, IcoQr,
   IcoReceipt, IcoSend, IcoSignOut, IcoTrash, IcoUpload, IcoX,
 } from "./src/icons";
 
@@ -29,7 +29,7 @@ const emptyData: AppData = {
 };
 
 type AuthMode = "login" | "signup";
-type Tab = "committee" | "members" | "chat" | "kuri";
+type Tab = "home" | "chat";
 type Member = { userId: string; role: "admin" | "member"; user: User };
 
 const C = {
@@ -188,7 +188,7 @@ function DatePickerModal({ visible, value, onChange, onClose }: {
   }, [visible]);
 
   const maxDay = daysInMonth(selMonth, selYear);
-  const yearList  = useMemo(() => Array.from({ length: 6 }, (_, i) => cy + i), [cy]);
+  const yearList  = useMemo(() => Array.from({ length: 11 }, (_, i) => cy - 5 + i), [cy]);
   const monthList = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
   const dayList   = useMemo(() => Array.from({ length: maxDay }, (_, i) => i + 1), [maxDay]);
 
@@ -357,23 +357,20 @@ function Btn({ label, onPress, variant = "primary", size = "md", disabled, full 
 // ─── Tab Bar ──────────────────────────────────────────────────────────────────
 
 type TabDef = { id: Tab; label: string; Icon: (p: { color: string; size: number }) => React.ReactElement };
+
 const TABS: TabDef[] = [
-  { id: "committee", label: "Committee", Icon: ({ color, size }) => <IcoCommittee color={color} size={size} /> },
-  { id: "members",   label: "Members",   Icon: ({ color, size }) => <IcoMembers   color={color} size={size} /> },
-  { id: "chat",      label: "Chat",      Icon: ({ color, size }) => <IcoChat      color={color} size={size} /> },
-  { id: "kuri",      label: "Savings",   Icon: ({ color, size }) => <IcoKuri      color={color} size={size} /> },
+  { id: "home", label: "Home", Icon: ({ color, size }) => <IcoHome color={color} size={size} /> },
+  { id: "chat", label: "Chat", Icon: ({ color, size }) => <IcoChat color={color} size={size} /> },
 ];
 
 function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
   return (
-    <View nativeID="tab-bar-safe" style={s.tabBar}>
+    <View style={s.tabBar}>
       {TABS.map((t) => {
-        const on = active === t.id;
+        const on = t.id === active;
         return (
-          <TouchableOpacity key={t.id} onPress={() => onChange(t.id)} style={s.tabItem} activeOpacity={0.7}>
-            <View style={[s.tabPill, on && s.tabPillOn]}>
-              <t.Icon color={on ? C.primary : C.textDim} size={20} />
-            </View>
+          <TouchableOpacity key={t.id} style={s.tabBtn} onPress={() => onChange(t.id)} activeOpacity={0.7}>
+            <t.Icon color={on ? C.primary : C.textDim} size={22} />
             <Text style={[s.tabLabel, on && s.tabLabelOn]}>{t.label}</Text>
           </TouchableOpacity>
         );
@@ -384,97 +381,125 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
 
 // ─── Tab Views (OUTSIDE App — prevents unmount/remount on every re-render) ────
 
-type CommitteeTabProps = {
+type HomeTabProps = {
   committee: Group;
-  members: Member[];
   myRole: "admin" | "member";
-  kuris: KuriPlan[];
-  msgCount: number;
+  members: Member[];
   pendingInvites: Invitation[];
-  onEdit: () => void;
+  myKuris: KuriPlan[];
+  kuriPayments: KuriPayment[];
+  currentUserId: string;
+  onOpenCommittee: () => void;
+  onManageKuri: (id: string) => void;
+  onCreateKuri: () => void;
 };
 
-function CommitteeTabView({ committee, members, myRole, kuris, msgCount, pendingInvites, onEdit }: CommitteeTabProps) {
+function HomeTab({ committee, myRole, members, pendingInvites, myKuris, kuriPayments, currentUserId, onOpenCommittee, onManageKuri, onCreateKuri }: HomeTabProps) {
   return (
-    <ScrollView
-      style={s.tabContent}
-      contentContainerStyle={{ paddingBottom: 24 }}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={s.hero}>
-        <View style={s.heroTop}>
-          <View style={s.heroIcon}>
-            <Text style={s.heroIconText}>{committee.name.slice(0, 2).toUpperCase()}</Text>
-          </View>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={s.heroName} numberOfLines={2}>{committee.name}</Text>
-            {committee.description ? (
-              <Text style={s.heroDesc} numberOfLines={2}>{committee.description}</Text>
-            ) : null}
-          </View>
-          {myRole === "admin" && (
-            <TouchableOpacity style={s.editBtn} onPress={onEdit} activeOpacity={0.7}>
-              <Text style={s.editBtnText}>Edit</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        <View style={s.statsRow}>
-          {[
-            { val: members.length, lbl: "Members" },
-            { val: kuris.length,   lbl: "Savings Plans" },
-            { val: msgCount,       lbl: "Messages" },
-          ].map((st, i) => (
-            <React.Fragment key={st.lbl}>
-              {i > 0 && <View style={s.statDivider} />}
-              <View style={s.stat}>
-                <Text style={s.statVal}>{st.val}</Text>
-                <Text style={s.statLbl}>{st.lbl}</Text>
-              </View>
-            </React.Fragment>
-          ))}
-        </View>
-      </View>
-
-      <View style={s.roleRow}>
-        <Text style={s.meta}>Your role: </Text>
-        <Badge
-          label={myRole === "admin" ? "Admin" : "Member"}
-          color={myRole === "admin" ? C.warn : C.accent}
-          bg={myRole === "admin" ? "#431407" : C.primaryLight}
-        />
-      </View>
-
-      {kuris.length > 0 && (
-        <Panel title="Savings Plans" noPad>
-          {kuris.map((k) => (
-            <View key={k.id} style={s.rowItem}>
-              <View style={s.rowItemIcon}><Text style={{ fontSize: 16 }}>💰</Text></View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.rowItemName}>{k.name}</Text>
-                <Text style={s.rowItemMeta}>₹{k.contributionAmount.toLocaleString()} / mo · starts {k.startDate}</Text>
-              </View>
-              <Badge label={`${k.participantUserIds.length}p`} color={C.accent} bg={C.primaryLight} />
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={s.tabContent}
+        contentContainerStyle={{ paddingBottom: 100, paddingTop: 8 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Committee Card ── */}
+        <TouchableOpacity style={s.committeeCard} onPress={onOpenCommittee} activeOpacity={0.8}>
+          <View style={s.committeeCardInner}>
+            <View style={s.committeeInitialBadge}>
+              <Text style={s.committeeInitialText}>{committee.name.slice(0, 2).toUpperCase()}</Text>
             </View>
-          ))}
-        </Panel>
-      )}
-
-      {pendingInvites.length > 0 && myRole === "admin" && (
-        <Panel title="Pending Invitations" noPad>
-          {pendingInvites.map((inv) => (
-            <View key={inv.id} style={s.rowItem}>
-              <View style={s.rowItemIcon}><Text style={{ fontSize: 16 }}>✉️</Text></View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.rowItemName} numberOfLines={1}>{inv.inviteeName || inv.inviteeEmail}</Text>
-                <Text style={s.rowItemMeta} numberOfLines={1}>{inv.inviteeEmail}</Text>
-              </View>
-              <View style={s.codePill}><Text style={s.codeText}>{inv.inviteCode}</Text></View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={s.committeeCardName} numberOfLines={1}>{committee.name}</Text>
+              {committee.description
+                ? <Text style={s.committeeCardDesc} numberOfLines={1}>{committee.description}</Text>
+                : <Text style={[s.committeeCardDesc, { color: C.textDim }]}>Tap to manage</Text>
+              }
             </View>
-          ))}
-        </Panel>
-      )}
-    </ScrollView>
+            <IcoArrow color={C.textMuted} size={18} />
+          </View>
+          <View style={s.committeeCardStats}>
+            <View style={s.committeeStat}>
+              <Text style={s.committeeStatVal}>{members.length}</Text>
+              <Text style={s.committeeStatLbl}>Members</Text>
+            </View>
+            <View style={s.committeeStatDiv} />
+            <View style={s.committeeStat}>
+              <Text style={s.committeeStatVal}>{myKuris.length}</Text>
+              <Text style={s.committeeStatLbl}>Kuris</Text>
+            </View>
+            <View style={s.committeeStatDiv} />
+            <View style={s.committeeStat}>
+              <Text style={[s.committeeStatVal, { color: myRole === "admin" ? C.warn : C.accent }]}>
+                {myRole === "admin" ? "Admin" : "Member"}
+              </Text>
+              <Text style={s.committeeStatLbl}>Your role</Text>
+            </View>
+            {pendingInvites.length > 0 && myRole === "admin" && (
+              <>
+                <View style={s.committeeStatDiv} />
+                <View style={s.committeeStat}>
+                  <Text style={[s.committeeStatVal, { color: "#f59e0b" }]}>{pendingInvites.length}</Text>
+                  <Text style={s.committeeStatLbl}>Pending</Text>
+                </View>
+              </>
+            )}
+          </View>
+        </TouchableOpacity>
+
+        {/* ── Kuri Plans ── */}
+        <View style={s.sectionHead}>
+          <Text style={s.sectionTitle}>Kuri Plans</Text>
+        </View>
+
+        {myKuris.length === 0 ? (
+          <View style={[s.emptyState, { paddingVertical: 40 }]}>
+            <IcoKuri color={C.textDim} size={40} />
+            <Text style={s.emptyTitle}>No Kuri plans yet</Text>
+            <Text style={s.emptyMeta}>Tap + to create your first Kuri</Text>
+          </View>
+        ) : (
+          myKuris.map((k) => {
+            const planPayments = kuriPayments.filter((p) => p.kuriId === k.id && p.status === "approved");
+            const totalCollected = planPayments.reduce((sum, p) => sum + p.amount, 0);
+            const isOwner = k.createdBy === currentUserId;
+            return (
+              <TouchableOpacity
+                key={k.id}
+                style={s.kuriCard}
+                onPress={() => onManageKuri(k.id)}
+                activeOpacity={0.8}
+              >
+                <View style={s.kuriCardTop}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.kuriCardName}>{k.name}</Text>
+                    <Text style={s.kuriCardDate}>Started {formatDateDisplay(k.startDate) || k.startDate}</Text>
+                  </View>
+                  <View style={s.kuriAmtBox}>
+                    <Text style={s.kuriAmtVal}>₹{k.contributionAmount.toLocaleString()}</Text>
+                    <Text style={s.kuriAmtLbl}>/ mo</Text>
+                  </View>
+                </View>
+                <View style={s.kuriCardRow}>
+                  <Text style={s.kuriMeta}>{k.participantUserIds.length} participants</Text>
+                  <Text style={[s.kuriVal, { color: C.green, fontWeight: "700" }]}>
+                    ₹{totalCollected.toLocaleString()} collected
+                  </Text>
+                </View>
+                {!k.upiId && isOwner && (
+                  <View style={[s.kuriCardRow, { marginTop: 4 }]}>
+                    <Text style={{ color: C.warn, fontSize: 12, fontWeight: "600" }}>⚠ UPI not set — members can't pay yet</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })
+        )}
+      </ScrollView>
+
+      <TouchableOpacity style={s.fab} onPress={onCreateKuri} activeOpacity={0.8}>
+        <IcoPlus color="#fff" size={26} />
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -705,6 +730,114 @@ function KuriTabView({ myKuris, currentUserId, onCreateOpen, onManageKuri }: Kur
       <TouchableOpacity style={s.fab} onPress={onCreateOpen} activeOpacity={0.8}>
         <IcoPlus color="#fff" size={26} />
       </TouchableOpacity>
+    </View>
+  );
+}
+
+// ─── Committee Detail Screen ─────────────────────────────────────────────────
+
+type CommitteeDetailScreenProps = {
+  committee: Group;
+  members: Member[];
+  myRole: "admin" | "member";
+  pendingInvites: Invitation[];
+  currentUserId: string;
+  onBack: () => void;
+  onInvite: () => void;
+  onMemberAction: (id: string) => void;
+  onEdit: () => void;
+};
+
+function CommitteeDetailScreen({ committee, members, myRole, pendingInvites, currentUserId, onBack, onInvite, onMemberAction, onEdit }: CommitteeDetailScreenProps) {
+  const [tab, setTab] = useState<"members" | "settings">("members");
+  return (
+    <View style={s.planScreen}>
+      <View nativeID="plan-safe-top" style={{ backgroundColor: C.surface }} />
+      <View style={s.planHeader}>
+        <TouchableOpacity onPress={onBack} style={s.planBack} activeOpacity={0.7} hitSlop={8}>
+          <IcoArrow color={C.text} size={22} />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={s.planTitle} numberOfLines={1}>{committee.name}</Text>
+          <Text style={s.planSubtitle}>{members.length} member{members.length !== 1 ? "s" : ""}</Text>
+        </View>
+        {myRole === "admin" && (
+          <TouchableOpacity style={s.iconBtn} onPress={onEdit} activeOpacity={0.7}>
+            <IcoEdit color={C.textMuted} size={18} />
+          </TouchableOpacity>
+        )}
+      </View>
+      {myRole === "admin" && (
+        <View style={[s.subTabRow, { marginHorizontal: 16, marginBottom: 0 }]}>
+          {([
+            { id: "members" as const, lbl: "Members" },
+            { id: "settings" as const, lbl: "Settings" },
+          ]).map((t) => (
+            <TouchableOpacity key={t.id} style={[s.subTab, tab === t.id && s.subTabOn]} onPress={() => setTab(t.id)} activeOpacity={0.7}>
+              <Text style={[s.subTabText, tab === t.id && s.subTabTextOn]}>{t.lbl}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {tab === "members" && (
+          <>
+            {myRole === "admin" && (
+              <View style={{ marginBottom: 12 }}>
+                <Btn label="+ Invite Member" onPress={onInvite} size="md" full variant="outline" />
+              </View>
+            )}
+            {members.length === 0
+              ? <EmptyState icon="👥" text="No members yet." />
+              : members.map((m) => (
+                <View key={m.user.id} style={s.memberCard}>
+                  <Avatar name={m.user.name} size={46} />
+                  <View style={s.memberInfo}>
+                    <View style={s.memberNameRow}>
+                      <Text style={s.memberName} numberOfLines={1}>{m.user.name}</Text>
+                      <Badge label={m.role === "admin" ? "Admin" : "Member"} color={m.role === "admin" ? C.warn : C.textMuted} bg={m.role === "admin" ? "#431407" : C.border} />
+                    </View>
+                    <Text style={s.memberEmail} numberOfLines={1}>{m.user.email}</Text>
+                  </View>
+                  {myRole === "admin" && m.user.id !== currentUserId && (
+                    <TouchableOpacity style={s.moreBtn} onPress={() => onMemberAction(m.user.id)} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Text style={s.moreBtnText}>•••</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))
+            }
+            {pendingInvites.length > 0 && (
+              <>
+                <View style={s.dividerRow}><Text style={s.dividerText}>Awaiting ({pendingInvites.length})</Text></View>
+                {pendingInvites.map((inv) => (
+                  <View key={inv.id} style={[s.memberCard, { opacity: 0.65 }]}>
+                    <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: C.border, alignItems: "center", justifyContent: "center" }}>
+                      <IcoInvite color={C.textMuted} size={22} />
+                    </View>
+                    <View style={s.memberInfo}>
+                      <Text style={s.memberName} numberOfLines={1}>{inv.inviteeName || "Invited Member"}</Text>
+                      <Text style={s.memberEmail} numberOfLines={1}>{inv.inviteeEmail}</Text>
+                    </View>
+                    <Badge label="Pending" color="#f59e0b" bg="#451a03" />
+                  </View>
+                ))}
+              </>
+            )}
+          </>
+        )}
+        {tab === "settings" && myRole === "admin" && (
+          <View>
+            {committee.description ? (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={s.label}>Description</Text>
+                <Text style={[s.meta, { lineHeight: 20 }]}>{committee.description}</Text>
+              </View>
+            ) : null}
+            <Btn label="Edit Committee Details" onPress={onEdit} size="lg" full />
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -1726,7 +1859,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>("committee");
+  const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [committeeDetailOpen, setCommitteeDetailOpen] = useState(false);
 
   // Auth form
   const [name, setName] = useState("");
@@ -2330,25 +2464,18 @@ export default function App() {
       </View>
 
       <View style={{ flex: 1 }}>
-        {activeTab === "committee" && (
-          <CommitteeTabView
+        {activeTab === "home" && (
+          <HomeTab
             committee={activeCommittee}
-            members={members}
             myRole={myRole}
-            kuris={myKuris}
-            msgCount={chatMessages.length}
-            pendingInvites={pendingInvites}
-            onEdit={openEdit}
-          />
-        )}
-        {activeTab === "members" && (
-          <MembersTabView
             members={members}
             pendingInvites={pendingInvites}
-            myRole={myRole}
+            myKuris={myKuris}
+            kuriPayments={kuriPayments}
             currentUserId={currentUser.id}
-            onInvite={() => setAddMemberOpen(true)}
-            onMemberAction={setMemberActionId}
+            onOpenCommittee={() => setCommitteeDetailOpen(true)}
+            onManageKuri={setOpenPlanId}
+            onCreateKuri={() => setCreateKuriOpen(true)}
           />
         )}
         {activeTab === "chat" && (
@@ -2362,19 +2489,26 @@ export default function App() {
             onFocusChange={(v) => { chatFocusedRef.current = v; }}
           />
         )}
-        {activeTab === "kuri" && (
-          <KuriTabView
-            myKuris={myKuris}
-            currentUserId={currentUser.id}
-            onCreateOpen={() => setCreateKuriOpen(true)}
-            onManageKuri={setOpenPlanId}
-          />
-        )}
       </View>
 
       <TabBar active={activeTab} onChange={setActiveTab} />
       {/* iOS safe-area fill — matches tab bar so the gap below home indicator isn't black */}
       <View nativeID="ios-safe-bottom" style={{ backgroundColor: C.surface }} />
+
+      {/* ── Committee Detail ── */}
+      {committeeDetailOpen && (
+        <CommitteeDetailScreen
+          committee={activeCommittee}
+          members={members}
+          myRole={myRole}
+          pendingInvites={pendingInvites}
+          currentUserId={currentUser.id}
+          onBack={() => setCommitteeDetailOpen(false)}
+          onInvite={() => { setCommitteeDetailOpen(false); setAddMemberOpen(true); }}
+          onMemberAction={(id) => { setCommitteeDetailOpen(false); setMemberActionId(id); }}
+          onEdit={() => { openEdit(); }}
+        />
+      )}
 
       {/* ── QR Crop ── */}
       {qrCropState && (
@@ -2714,6 +2848,7 @@ const s = StyleSheet.create({
 
   tabBar: { flexDirection: "row", backgroundColor: C.surface, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 6, paddingBottom: Platform.OS === "web" ? 10 : 4 },
   tabItem: { flex: 1, alignItems: "center", paddingVertical: 2 },
+  tabBtn: { flex: 1, alignItems: "center", paddingVertical: 4 },
   tabPill: { width: 52, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
   tabPillOn: { backgroundColor: C.primaryLight },
   tabLabel: { color: C.textDim, fontSize: 10, fontWeight: "600", marginTop: 3 },
@@ -2937,6 +3072,23 @@ const s = StyleSheet.create({
   emptyState: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80, gap: 12 },
   emptyTitle: { color: C.text, fontSize: 17, fontWeight: "700" },
   emptyMeta: { color: C.textMuted, fontSize: 14, textAlign: "center" },
+
+  // HomeTab committee card
+  committeeCard: { backgroundColor: C.surface, borderRadius: 16, borderWidth: 1, borderColor: C.border, marginBottom: 16, overflow: "hidden" },
+  committeeCardInner: { flexDirection: "row", alignItems: "center", padding: 16 },
+  committeeInitialBadge: { width: 48, height: 48, borderRadius: 14, backgroundColor: C.primaryLight, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  committeeInitialText: { color: C.primary, fontSize: 18, fontWeight: "900" },
+  committeeCardName: { color: C.text, fontSize: 17, fontWeight: "800", marginBottom: 2 },
+  committeeCardDesc: { color: C.textMuted, fontSize: 13 },
+  committeeCardStats: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 14, gap: 0 },
+  committeeStat: { flex: 1, alignItems: "center" },
+  committeeStatVal: { color: C.text, fontSize: 18, fontWeight: "800" },
+  committeeStatLbl: { color: C.textMuted, fontSize: 11, marginTop: 1 },
+  committeeStatDiv: { width: 1, height: 32, backgroundColor: C.border },
+
+  // Receipt rows in creator expanded view
+  receiptRow: { flexDirection: "row", alignItems: "center", padding: 12, borderBottomWidth: 1, borderBottomColor: C.border },
+  receiptRowName: { color: C.text, fontSize: 14, fontWeight: "600" },
 
   // Payment totals
   totalsPanel: { backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 12 },
