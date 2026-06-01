@@ -1,0 +1,30 @@
+name: Deploy Flutter to GitHub Pages
+
+on:
+  push:
+    branches: [claude/committee-app-ui-testing-YTw60, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: flutter
+      - name: Build Flutter web
+        run: flutter build web --release --base-href /committee-app/
+        working-directory: flutter
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./flutter/build/web
