@@ -1,4 +1,4 @@
-name: Deploy Flutter to GitHub Pages
+name: Deploy Flutter Apps to GitHub Pages
 
 on:
   push:
@@ -9,21 +9,67 @@ permissions:
   contents: write
 
 jobs:
-  build-and-deploy:
+  build-committee:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-      - name: Install dependencies
-        run: flutter pub get
-        working-directory: flutter
-      - name: Build Flutter web
-        run: flutter build web --release --base-href /committee-app/
-        working-directory: flutter
-      - name: Deploy to gh-pages
-        uses: peaceiris/actions-gh-pages@v3
+      - run: flutter pub get
+        working-directory: apps/committee
+      - run: flutter build web --release --base-href /committee-app/committee/
+        working-directory: apps/committee
+      - uses: actions/upload-artifact@v4
+        with:
+          name: committee-web
+          path: apps/committee/build/web
+
+  build-kuri:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: flutter pub get
+        working-directory: apps/kuri
+      - run: flutter build web --release --base-href /committee-app/kuri/
+        working-directory: apps/kuri
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kuri-web
+          path: apps/kuri/build/web
+
+  deploy:
+    needs: [build-committee, build-kuri]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: committee-web
+          path: dist/committee
+      - uses: actions/download-artifact@v4
+        with:
+          name: kuri-web
+          path: dist/kuri
+      - name: Create root index
+        run: |
+          cat > dist/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head><meta charset="UTF-8"><title>Apps</title>
+          <style>body{font-family:sans-serif;background:#020817;color:#e2e8f0;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:20px;}</style>
+          </head>
+          <body>
+          <h1>Our Apps</h1>
+          <a href="committee/" style="color:#22d3ee;font-size:20px">Committee →</a>
+          <a href="kuri/" style="color:#22d3ee;font-size:20px">Kuri →</a>
+          </body>
+          </html>
+          EOF
+      - uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./flutter/build/web
+          publish_dir: dist
