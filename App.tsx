@@ -664,76 +664,6 @@ function ChatTabView({ chatMessages, currentUser, chatText, onChangeText, onSend
 
 type NotifRule = { id: string; channel: "email" | "in_app"; beforeDays: string; emails: string };
 
-type KuriTabProps = {
-  myKuris: KuriPlan[];
-  currentUserId: string;
-  onCreateOpen: () => void;
-  onManageKuri: (kuriId: string) => void;
-};
-
-function KuriTabView({ myKuris, currentUserId, onCreateOpen, onManageKuri }: KuriTabProps) {
-  return (
-    <View style={{ flex: 1 }}>
-      <ScrollView
-        style={s.tabContent}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {myKuris.length === 0 ? (
-          <View style={s.emptyState}>
-            <IcoKuri color={C.textDim} size={48} />
-            <Text style={s.emptyTitle}>No Savings Plans yet</Text>
-            <Text style={s.emptyMeta}>Tap the + button to create your first plan</Text>
-          </View>
-        ) : (
-          <Panel title="Your Savings Plans" noPad>
-            {myKuris.map((k) => (
-              <View key={k.id} style={s.kuriCard}>
-                <View style={s.kuriCardTop}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.kuriCardName}>{k.name}</Text>
-                    <Text style={s.kuriCardDate}>Starts {formatDateDisplay(k.startDate) || k.startDate}</Text>
-                  </View>
-                  <View style={s.kuriAmtBox}>
-                    <Text style={s.kuriAmtVal}>₹{k.contributionAmount.toLocaleString()}</Text>
-                    <Text style={s.kuriAmtLbl}>per month</Text>
-                  </View>
-                </View>
-                <View style={s.kuriCardRow}>
-                  <Text style={s.kuriMeta}>Participants</Text>
-                  <Text style={s.kuriVal}>{k.participantUserIds.length} people</Text>
-                </View>
-                <View style={s.kuriCardRow}>
-                  <Text style={s.kuriMeta}>UPI</Text>
-                  <Text style={[s.kuriVal, !k.upiId && { color: C.textDim }]}>
-                    {k.upiId || (k.createdBy === currentUserId ? "Not set" : "—")}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={s.kuriManageBtn}
-                  onPress={() => onManageKuri(k.id)}
-                  activeOpacity={0.7}
-                >
-                  <IcoMore color={C.primary} size={16} />
-                  <Text style={s.kuriManageBtnText}>
-                    {k.createdBy === currentUserId ? "Manage Plan" : "Payments"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </Panel>
-        )}
-      </ScrollView>
-
-      {/* FAB */}
-      <TouchableOpacity style={s.fab} onPress={onCreateOpen} activeOpacity={0.8}>
-        <IcoPlus color="#fff" size={26} />
-      </TouchableOpacity>
-    </View>
-  );
-}
-
 // ─── Committee Detail Screen ─────────────────────────────────────────────────
 
 type CommitteeDetailScreenProps = {
@@ -1030,7 +960,7 @@ function CreateKuriModal({
         <View style={[s.sheet, { maxHeight: "90%" }]}>
           <View style={s.handle} />
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4, paddingHorizontal: 2 }}>
-            <Text style={[s.sheetTitle, { flex: 1, marginBottom: 0 }]}>New Savings Plan</Text>
+            <Text style={[s.sheetTitle, { flex: 1, marginBottom: 0 }]}>Create Kuri</Text>
             <TouchableOpacity onPress={onClose} hitSlop={12} activeOpacity={0.7}>
               <IcoX color={C.textMuted} size={20} />
             </TouchableOpacity>
@@ -1172,7 +1102,7 @@ function CreateKuriModal({
             ))}
 
             <View style={{ height: 6 }} />
-            <Btn label="Create Savings Plan" onPress={onCreateKuri} size="lg" full />
+            <Btn label="Create Kuri" onPress={onCreateKuri} size="lg" full />
             <View style={{ height: 24 }} />
           </ScrollView>
         </View>
@@ -1347,7 +1277,7 @@ function webPickQrFile(onDone: (b64: string) => void) {
 
 function openUpiDeepLink(upiId: string, name: string, amount: number) {
   if (typeof window === "undefined") return;
-  const url = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(name)}&am=${amount}&cu=INR&tn=${encodeURIComponent("Savings Plan Payment")}`;
+  const url = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(name)}&am=${amount}&cu=INR&tn=${encodeURIComponent("Kuri Payment")}`;
   // On mobile browsers this opens the UPI app chooser.
   // On desktop it will silently fail — that's fine, desktop users copy the ID.
   window.location.href = url;
@@ -1386,8 +1316,8 @@ function SavingsPlanScreen({
   const [submitting, setSubmitting] = useState(false);
   const [autoExtracted, setAutoExtracted] = useState(false);
 
-  // Inline review state (replaces popup)
-  const [reviewingMonthId, setReviewingMonthId] = useState<string | null>(null);
+  // Inline review state
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
   const [reviewingPaymentId, setReviewingPaymentId] = useState<string | null>(null);
   const [rejNotes, setRejNotes] = useState("");
 
@@ -1398,8 +1328,6 @@ function SavingsPlanScreen({
   const myPayments = payments.filter((p) => p.kuriId === kuri.id && p.userId === currentUser.id);
   const allPayments = payments.filter((p) => p.kuriId === kuri.id);
   const getMyPayment = (m: string) => myPayments.find((p) => p.month === m);
-  const getMonthSubmissions = (m: string) => allPayments.filter((p) => p.month === m && p.status === "submitted");
-  const getMonthApproved = (m: string) => allPayments.filter((p) => p.month === m && p.status === "approved").length;
 
   // A month is payable if the previous month (for this user) is submitted or approved
   const isMonthPayable = (m: string) => {
@@ -1459,8 +1387,6 @@ function SavingsPlanScreen({
     name: memberName(uid),
     total: approvedPayments.filter((p) => p.userId === uid).reduce((sum, p) => sum + p.amount, 0),
   }));
-
-  const reviewingPayment = allPayments.find((p) => p.id === reviewingPaymentId);
 
   return (
     <View style={s.planScreen}>
@@ -1579,104 +1505,131 @@ function SavingsPlanScreen({
                 <Text style={s.meta}>No months yet — plan starts in the future.</Text>
               </View>
             ) : months.map((m) => {
-              const submissions = getMonthSubmissions(m);
-              const approved = getMonthApproved(m);
+              const monthPayments = allPayments.filter((p) => p.month === m);
+              const approved = monthPayments.filter((p) => p.status === "approved").length;
+              const submitted = monthPayments.filter((p) => p.status === "submitted").length;
               const total = kuri.participantUserIds.length;
               const allPaid = approved >= total && total > 0;
-              const isReviewing = reviewingMonthId === m;
-              const rPayment = isReviewing ? allPayments.find((p) => p.id === reviewingPaymentId) : null;
+              const isExpanded = expandedMonth === m;
 
               return (
                 <View key={m}>
-                  <View style={s.monthRow}>
+                  <TouchableOpacity
+                    style={s.monthRow}
+                    onPress={() => setExpandedMonth(isExpanded ? null : m)}
+                    activeOpacity={0.7}
+                  >
                     <View style={{ flex: 1 }}>
                       <Text style={s.monthLabel}>{fmtMonth(m)}</Text>
                       <Text style={s.monthSub}>
-                        {approved}/{total} confirmed
-                        {submissions.length > 0 ? ` · ${submissions.length} awaiting review` : ""}
+                        {approved}/{total} confirmed{submitted > 0 ? ` · ${submitted} pending review` : ""}
                       </Text>
                     </View>
-                    {allPaid ? (
-                      <View style={[s.statusPill, { backgroundColor: C.greenDark }]}>
+                    {allPaid && (
+                      <View style={[s.statusPill, { backgroundColor: C.greenDark, marginRight: 8 }]}>
                         <IcoCheck color={C.green} size={11} />
                         <Text style={[s.statusPillText, { color: C.green }]}>All paid</Text>
                       </View>
-                    ) : submissions.length > 0 && !isReviewing ? (
-                      <TouchableOpacity
-                        style={s.reviewBtn}
-                        onPress={() => {
-                          setReviewingMonthId(m);
-                          setReviewingPaymentId(submissions[0].id);
-                          setRejNotes("");
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={s.reviewBtnText}>Review {submissions.length > 1 ? `(${submissions.length})` : ""}</Text>
-                      </TouchableOpacity>
-                    ) : isReviewing ? (
-                      <TouchableOpacity onPress={() => { setReviewingMonthId(null); setReviewingPaymentId(null); }} hitSlop={8}>
-                        <IcoX color={C.textMuted} size={18} />
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
+                    )}
+                    {submitted > 0 && !allPaid && (
+                      <View style={[s.statusPill, { backgroundColor: "#451a03", marginRight: 8 }]}>
+                        <Text style={[s.statusPillText, { color: "#f59e0b" }]}>{submitted} review</Text>
+                      </View>
+                    )}
+                    <IcoChevronDown color={C.textMuted} size={16} />
+                  </TouchableOpacity>
 
-                  {/* Inline review panel */}
-                  {isReviewing && rPayment && (
-                    <View style={s.inlineReview}>
-                      <Text style={[s.label, { marginBottom: 8 }]}>
-                        Reviewing: {memberName(rPayment.userId)}
-                      </Text>
-                      <View style={[s.upiBox, { marginBottom: 10 }]}>
-                        <Text style={[s.upiLabel, { marginBottom: 2 }]}>Transaction ID</Text>
-                        <Text style={{ color: C.text, fontWeight: "700", fontSize: 15 }}>{rPayment.transactionId}</Text>
-                      </View>
-                      {rPayment.receiptBase64?.startsWith("data:image") && (
-                        <Image
-                          source={{ uri: rPayment.receiptBase64 }}
-                          style={{ width: "100%", height: 240, borderRadius: 10, backgroundColor: C.border, marginBottom: 10 }}
-                          resizeMode="contain"
-                        />
-                      )}
-                      {rPayment.receiptFileName && !rPayment.receiptBase64?.startsWith("data:image") && (
-                        <View style={[s.upiBox, { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }]}>
-                          <IcoReceipt color={C.textMuted} size={20} />
-                          <Text style={{ color: C.textMuted, fontSize: 13 }}>{rPayment.receiptFileName}</Text>
-                        </View>
-                      )}
-                      <Text style={[s.label, { fontSize: 12, marginBottom: 4 }]}>Rejection note (if rejecting)</Text>
-                      <TextInput
-                        style={[s.input, { marginBottom: 12 }]}
-                        value={rejNotes}
-                        onChangeText={setRejNotes}
-                        placeholder="e.g. Wrong amount, please resubmit"
-                        placeholderTextColor={C.textDim}
-                      />
-                      {/* If multiple submissions, show nav */}
-                      {submissions.length > 1 && (
-                        <View style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
-                          {submissions.map((sub, i) => (
-                            <TouchableOpacity
-                              key={sub.id}
-                              style={{ paddingVertical: 4, paddingHorizontal: 10, borderRadius: 8, backgroundColor: sub.id === reviewingPaymentId ? C.primary : C.surface, borderWidth: 1, borderColor: C.border }}
-                              onPress={() => { setReviewingPaymentId(sub.id); setRejNotes(""); }}
-                            >
-                              <Text style={{ color: sub.id === reviewingPaymentId ? C.primaryFg : C.textMuted, fontSize: 12 }}>#{i + 1}</Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      )}
-                      <View style={{ flexDirection: "row", gap: 10 }}>
-                        <View style={{ flex: 1 }}>
-                          <Btn label="✓ Confirm" variant="green" size="md" full
-                            onPress={() => { onReviewPayment(rPayment.id, true); setReviewingMonthId(null); setReviewingPaymentId(null); setRejNotes(""); }}
-                          />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Btn label="✕ Reject" variant="danger" size="md" full
-                            onPress={() => { onReviewPayment(rPayment.id, false, rejNotes || undefined); setReviewingMonthId(null); setReviewingPaymentId(null); setRejNotes(""); }}
-                          />
-                        </View>
-                      </View>
+                  {isExpanded && (
+                    <View style={{ backgroundColor: C.surface, borderRadius: 12, marginBottom: 8, overflow: "hidden" }}>
+                      {kuri.participantUserIds.map((uid) => {
+                        const payment = monthPayments.find((p) => p.userId === uid);
+                        const name = memberName(uid);
+                        const isReviewing = reviewingPaymentId === payment?.id;
+                        return (
+                          <View key={uid}>
+                            <View style={s.receiptRow}>
+                              <Avatar name={name} size={34} />
+                              <View style={{ flex: 1, marginLeft: 10 }}>
+                                <Text style={s.receiptRowName} numberOfLines={1}>{name}</Text>
+                                {payment ? (
+                                  <Text style={{ color: statusColor(payment.status), fontSize: 12, fontWeight: "600" }}>
+                                    {statusLabel(payment.status)}
+                                  </Text>
+                                ) : (
+                                  <Text style={{ color: C.textDim, fontSize: 12 }}>Not submitted</Text>
+                                )}
+                              </View>
+                              {payment && (
+                                <Text style={{ color: C.text, fontWeight: "700", fontSize: 14, marginRight: 8 }}>
+                                  ₹{payment.amount.toLocaleString()}
+                                </Text>
+                              )}
+                              {payment?.status === "submitted" && !isReviewing && (
+                                <TouchableOpacity
+                                  style={s.reviewBtn}
+                                  onPress={() => { setReviewingPaymentId(payment.id); setRejNotes(""); }}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text style={s.reviewBtnText}>Review</Text>
+                                </TouchableOpacity>
+                              )}
+                              {payment?.status === "submitted" && isReviewing && (
+                                <TouchableOpacity onPress={() => setReviewingPaymentId(null)} hitSlop={8}>
+                                  <IcoX color={C.textMuted} size={18} />
+                                </TouchableOpacity>
+                              )}
+                              {payment?.status === "approved" && payment.receiptBase64?.startsWith("data:image") && (
+                                <Image
+                                  source={{ uri: payment.receiptBase64 }}
+                                  style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: "#fff" }}
+                                  resizeMode="cover"
+                                />
+                              )}
+                            </View>
+                            {isReviewing && payment && (
+                              <View style={[s.inlineReview, { margin: 10, marginTop: 0 }]}>
+                                <View style={[s.upiBox, { marginBottom: 10 }]}>
+                                  <Text style={[s.upiLabel, { marginBottom: 2 }]}>Transaction ID</Text>
+                                  <Text style={{ color: C.text, fontWeight: "700", fontSize: 15 }}>{payment.transactionId}</Text>
+                                </View>
+                                {payment.receiptBase64?.startsWith("data:image") && (
+                                  <Image
+                                    source={{ uri: payment.receiptBase64 }}
+                                    style={{ width: "100%", height: 200, borderRadius: 10, backgroundColor: C.border, marginBottom: 10 }}
+                                    resizeMode="contain"
+                                  />
+                                )}
+                                {payment.receiptFileName && !payment.receiptBase64?.startsWith("data:image") && (
+                                  <View style={[s.upiBox, { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }]}>
+                                    <IcoReceipt color={C.textMuted} size={20} />
+                                    <Text style={{ color: C.textMuted, fontSize: 13 }}>{payment.receiptFileName}</Text>
+                                  </View>
+                                )}
+                                <Text style={[s.label, { fontSize: 12, marginBottom: 4 }]}>Rejection note (if rejecting)</Text>
+                                <TextInput
+                                  style={[s.input, { marginBottom: 12 }]}
+                                  value={rejNotes}
+                                  onChangeText={setRejNotes}
+                                  placeholder="e.g. Wrong amount, please resubmit"
+                                  placeholderTextColor={C.textDim}
+                                />
+                                <View style={{ flexDirection: "row", gap: 10 }}>
+                                  <View style={{ flex: 1 }}>
+                                    <Btn label="✓ Confirm" variant="green" size="md" full
+                                      onPress={() => { onReviewPayment(payment.id, true); setReviewingPaymentId(null); setRejNotes(""); }}
+                                    />
+                                  </View>
+                                  <View style={{ flex: 1 }}>
+                                    <Btn label="✕ Reject" variant="danger" size="md" full
+                                      onPress={() => { onReviewPayment(payment.id, false, rejNotes || undefined); setReviewingPaymentId(null); setRejNotes(""); }}
+                                    />
+                                  </View>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
                     </View>
                   )}
                 </View>
@@ -2196,7 +2149,7 @@ export default function App() {
       setNotifRules([{ id: "r1", channel: "in_app", beforeDays: "2", emails: "" }]);
       setCreateKuriOpen(false);
       await refresh();
-      Alert.alert("Created!", "Savings plan created successfully.");
+      Alert.alert("Created!", "Kuri plan created successfully.");
     } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed."); }
   };
 
@@ -2240,7 +2193,7 @@ export default function App() {
   };
 
   const deleteKuri = (kuriId: string, kuriName: string) => {
-    Alert.alert("Delete Savings Plan", `Delete "${kuriName}"? This cannot be undone.`, [
+    Alert.alert("Delete Kuri", `Delete "${kuriName}"? This cannot be undone.`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete", style: "destructive", onPress: async () => {
