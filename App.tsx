@@ -19,7 +19,7 @@ import { StatusBar } from "expo-status-bar";
 import { kuriService } from "./src/services/kuriService";
 import { AppData, ChatMessage, Group, Invitation, KuriPayment, KuriPlan, User } from "./src/types";
 import {
-  AppLogo, IcoArrow, IcoBell, IcoCalendar, IcoChat, IcoCheck, IcoCopy, IcoEdit,
+  AppLogo, IcoArrow, IcoBell, IcoCalendar, IcoChat, IcoCheck, IcoChevronDown, IcoCopy, IcoEdit,
   IcoImage, IcoKuri, IcoCommittee, IcoMembers, IcoMore, IcoPlus, IcoQr,
   IcoReceipt, IcoSend, IcoSignOut, IcoTrash, IcoUpload, IcoX,
 } from "./src/icons";
@@ -1226,6 +1226,7 @@ type SavingsPlanScreenProps = {
   kuri: KuriPlan;
   currentUser: User;
   members: Member[];
+  allUsers: User[];
   payments: KuriPayment[];
   isCreator: boolean;
   onBack: () => void;
@@ -1237,7 +1238,7 @@ type SavingsPlanScreenProps = {
 };
 
 function SavingsPlanScreen({
-  kuri, currentUser, members, payments, isCreator,
+  kuri, currentUser, members, allUsers, payments, isCreator,
   onBack, onDelete, onSaveUpi, onSubmitPayment, onReviewPayment, onPickQr,
 }: SavingsPlanScreenProps) {
   const [creatorTab, setCreatorTab] = useState<"receipts" | "settings">("receipts");
@@ -1313,7 +1314,18 @@ function SavingsPlanScreen({
     st === "approved" ? C.green : st === "rejected" ? C.danger : C.warn;
   const statusLabel = (st: KuriPayment["status"]) =>
     st === "approved" ? "Confirmed" : st === "rejected" ? "Rejected" : "Pending review";
-  const memberName = (uid: string) => members.find((m) => m.user.id === uid)?.user.name ?? uid;
+  const memberName = (uid: string) =>
+    allUsers.find((u) => u.id === uid)?.name ?? members.find((m) => m.user.id === uid)?.user.name ?? uid;
+
+  // Payment totals
+  const approvedPayments = allPayments.filter((p) => p.status === "approved");
+  const totalApproved = approvedPayments.reduce((sum, p) => sum + p.amount, 0);
+  const myApprovedTotal = approvedPayments.filter((p) => p.userId === currentUser.id).reduce((sum, p) => sum + p.amount, 0);
+  const perUserTotals = kuri.participantUserIds.map((uid) => ({
+    uid,
+    name: memberName(uid),
+    total: approvedPayments.filter((p) => p.userId === uid).reduce((sum, p) => sum + p.amount, 0),
+  }));
 
   const reviewingPayment = allPayments.find((p) => p.id === reviewingPaymentId);
 
@@ -1394,6 +1406,38 @@ function SavingsPlanScreen({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* ══ PAYMENT TOTALS SUMMARY ══ */}
+        {isCreator ? (
+          <View style={s.totalsPanel}>
+            <Text style={s.totalsPanelTitle}>Payment Summary</Text>
+            {perUserTotals.map(({ uid, name, total }) => (
+              <View key={uid} style={s.totalsRow}>
+                <Text style={s.totalsName} numberOfLines={1}>{name}</Text>
+                <Text style={[s.totalsAmt, total > 0 ? { color: C.green } : { color: C.textDim }]}>
+                  ₹{total.toLocaleString()}
+                </Text>
+              </View>
+            ))}
+            <View style={s.totalsDivider} />
+            <View style={s.totalsRow}>
+              <Text style={[s.totalsName, { color: C.text, fontWeight: "800" }]}>Total collected</Text>
+              <Text style={[s.totalsAmt, { color: C.primary, fontWeight: "800" }]}>₹{totalApproved.toLocaleString()}</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={s.totalsMemberRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.totalsMemberLabel}>Your paid</Text>
+              <Text style={s.totalsMemberAmt}>₹{myApprovedTotal.toLocaleString()}</Text>
+            </View>
+            <View style={s.totalsMemberDivider} />
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <Text style={s.totalsMemberLabel}>Plan total</Text>
+              <Text style={[s.totalsMemberAmt, { color: C.primary }]}>₹{totalApproved.toLocaleString()}</Text>
+            </View>
+          </View>
+        )}
+
         {/* ══ CREATOR: RECEIPTS ══ */}
         {isCreator && creatorTab === "receipts" && (
           <>
@@ -1711,6 +1755,7 @@ export default function App() {
   const [kuriQrBase64, setKuriQrBase64] = useState<string | undefined>(undefined);
   const [kuriParticipantIds, setKuriParticipantIds] = useState<string[]>([]);
   const [participantPickerOpen, setParticipantPickerOpen] = useState(false);
+  const [pickerEmailInput, setPickerEmailInput] = useState("");
   const [notifRules, setNotifRules] = useState<
     Array<{ id: string; channel: "email" | "in_app"; beforeDays: string; emails: string }>
   >([{ id: "r1", channel: "in_app", beforeDays: "2", emails: "" }]);
@@ -2257,7 +2302,7 @@ export default function App() {
             <Text style={s.headerName} numberOfLines={1}>{currentUser.name}</Text>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Text style={[s.headerSub, { flex: 1 }]} numberOfLines={1}>{activeCommittee.name}</Text>
-              <Text style={{ color: C.textMuted, fontSize: 10, marginLeft: 4 }}>▼</Text>
+              <IcoChevronDown color={C.textMuted} size={14} />
               {invitedForMe.length > 0 && (
                 <View style={s.switcherDot} />
               )}
@@ -2437,7 +2482,36 @@ export default function App() {
           <View style={s.sheet}>
             <View style={s.handle} />
             <Text style={s.sheetTitle}>Select Participants</Text>
-            <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+            {/* Add by email — finds any registered user, not just committee members */}
+            <View style={s.pickerEmailRow}>
+              <TextInput
+                style={[s.input, { flex: 1, marginBottom: 0 }]}
+                value={pickerEmailInput}
+                onChangeText={setPickerEmailInput}
+                placeholder="Add by email..."
+                placeholderTextColor={C.textDim}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={s.pickerEmailAdd}
+                activeOpacity={0.7}
+                onPress={() => {
+                  const cleaned = pickerEmailInput.trim().toLowerCase();
+                  if (!cleaned) return;
+                  const found = data.users.find((u) => u.email === cleaned);
+                  if (!found) { Alert.alert("Not found", "No account with that email."); return; }
+                  if (!kuriParticipantIds.includes(found.id)) {
+                    setKuriParticipantIds((p) => [...p, found.id]);
+                  }
+                  setPickerEmailInput("");
+                }}
+              >
+                <IcoPlus color="#fff" size={18} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+              {/* Committee members */}
               {members.map((m) => {
                 const sel = kuriParticipantIds.includes(m.user.id);
                 return (
@@ -2460,6 +2534,30 @@ export default function App() {
                   </TouchableOpacity>
                 );
               })}
+              {/* External participants (not in committee) */}
+              {kuriParticipantIds
+                .filter((id) => !members.some((m) => m.user.id === id))
+                .map((id) => {
+                  const u = data.users.find((u) => u.id === id);
+                  if (!u) return null;
+                  return (
+                    <TouchableOpacity
+                      key={u.id}
+                      style={[s.pickerRow, s.pickerRowSel]}
+                      onPress={() => setKuriParticipantIds((p) => p.filter((x) => x !== u.id))}
+                      activeOpacity={0.7}
+                    >
+                      <Avatar name={u.name} size={38} />
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={s.pickerName}>{u.name}</Text>
+                        <Text style={s.pickerEmail}>{u.email} · external</Text>
+                      </View>
+                      <View style={[s.checkbox, s.checkboxSel]}>
+                        <Text style={s.checkmark}>✓</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
             </ScrollView>
             <View style={{ height: 16 }} />
             <Btn
@@ -2567,6 +2665,7 @@ export default function App() {
           kuri={openPlan}
           currentUser={currentUser}
           members={members}
+          allUsers={data.users}
           payments={data.payments}
           isCreator={openPlan.createdBy === currentUser.id}
           onBack={() => setOpenPlanId(null)}
@@ -2838,6 +2937,22 @@ const s = StyleSheet.create({
   emptyState: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80, gap: 12 },
   emptyTitle: { color: C.text, fontSize: 17, fontWeight: "700" },
   emptyMeta: { color: C.textMuted, fontSize: 14, textAlign: "center" },
+
+  // Payment totals
+  totalsPanel: { backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 12 },
+  totalsPanelTitle: { color: C.textMuted, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 },
+  totalsRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 5 },
+  totalsName: { color: C.textSub, fontSize: 14, flex: 1 },
+  totalsAmt: { color: C.textMuted, fontSize: 14, fontWeight: "700" },
+  totalsDivider: { height: 1, backgroundColor: C.border, marginVertical: 8 },
+  totalsMemberRow: { flexDirection: "row", alignItems: "center", backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 12 },
+  totalsMemberDivider: { width: 1, height: 36, backgroundColor: C.border, marginHorizontal: 16 },
+  totalsMemberLabel: { color: C.textMuted, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
+  totalsMemberAmt: { color: C.green, fontSize: 20, fontWeight: "800" },
+
+  // Participant picker email row
+  pickerEmailRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+  pickerEmailAdd: { width: 44, height: 44, borderRadius: 10, backgroundColor: C.primaryMid, alignItems: "center", justifyContent: "center" },
 
   // Committee switcher
   switcherDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.danger, marginLeft: 5, flexShrink: 0 },

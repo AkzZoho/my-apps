@@ -215,6 +215,14 @@ export function IcoImage({ size = 24, color = "#fff", sw = 1.8 }: P) {
   );
 }
 
+export function IcoChevronDown({ size = 24, color = "#fff", sw = 2 }: P) {
+  return (
+    <I size={size}>
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
+    </I>
+  );
+}
+
 // ─── App Logo ─────────────────────────────────────────────────────────────────
 // Six-member hexagon arrangement with central rupee coin
 
