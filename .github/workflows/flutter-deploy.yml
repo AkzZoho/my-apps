@@ -25,7 +25,7 @@ jobs:
           channel: 'stable'
       - run: flutter pub get
         working-directory: apps/committee
-      - run: flutter build web --release --base-href /committee-app/committee/
+      - run: flutter build web --release --base-href /my-apps/committee/
         working-directory: apps/committee
       - uses: actions/upload-artifact@v4
         with:
@@ -42,7 +42,7 @@ jobs:
           channel: 'stable'
       - run: flutter pub get
         working-directory: apps/kuri
-      - run: flutter build web --release --base-href /committee-app/kuri/
+      - run: flutter build web --release --base-href /my-apps/kuri/
         working-directory: apps/kuri
       - uses: actions/upload-artifact@v4
         with:
