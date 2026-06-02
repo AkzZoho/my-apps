@@ -337,32 +337,45 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                // Quick-pick from users list
-                ...data.users
-                    .where((u) =>
-                        u.id != currentUser?.id &&
-                        !_selectedParticipants.any((p) => p.id == u.id))
-                    .take(5)
-                    .map((u) => InkWell(
-                          onTap: () => setState(() => _selectedParticipants.add(u)),
-                          borderRadius: BorderRadius.circular(6),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                            child: Row(
-                              children: [
-                                AvatarWidget(name: u.name, size: 24),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '${u.name} (${u.email})',
-                                    style: TextStyle(color: c.textMuted, fontSize: 12),
+                // Quick-pick: only users from the creator's existing Kuris
+                ...() {
+                  final myKuriParticipantIds = data.kuris
+                      .where((k) =>
+                          k.createdBy == currentUser?.id ||
+                          k.participantUserIds.contains(currentUser?.id))
+                      .expand((k) => k.participantUserIds)
+                      .toSet()
+                    ..remove(currentUser?.id);
+
+                  return data.users
+                      .where((u) =>
+                          myKuriParticipantIds.contains(u.id) &&
+                          !_selectedParticipants.any((p) => p.id == u.id))
+                      .take(5)
+                      .map((u) => InkWell(
+                            onTap: () =>
+                                setState(() => _selectedParticipants.add(u)),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 4),
+                              child: Row(
+                                children: [
+                                  AvatarWidget(name: u.name, size: 24),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '${u.name} (${u.email})',
+                                      style: TextStyle(
+                                          color: c.textMuted, fontSize: 12),
+                                    ),
                                   ),
-                                ),
-                                Icon(Icons.add, color: c.primary, size: 16),
-                              ],
+                                  Icon(Icons.add, color: c.primary, size: 16),
+                                ],
+                              ),
                             ),
-                          ),
-                        )),
+                          ));
+                }(),
                 const SizedBox(height: 16),
                 // Required fields note
                 Text('* Required fields',
