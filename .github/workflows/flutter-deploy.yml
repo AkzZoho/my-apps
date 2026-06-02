@@ -6,13 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
+  contents: write
 
 jobs:
   build-committee:
@@ -23,9 +17,11 @@ jobs:
         with:
           flutter-version: '3.24.5'
           channel: 'stable'
-      - run: flutter pub get
+      - name: Install dependencies
+        run: flutter pub get
         working-directory: apps/committee
-      - run: flutter build web --release --base-href /my-apps/committee/
+      - name: Build committee web
+        run: flutter build web --release --base-href /my-apps/committee/
         working-directory: apps/committee
       - uses: actions/upload-artifact@v4
         with:
@@ -40,9 +36,11 @@ jobs:
         with:
           flutter-version: '3.24.5'
           channel: 'stable'
-      - run: flutter pub get
+      - name: Install dependencies
+        run: flutter pub get
         working-directory: apps/kuri
-      - run: flutter build web --release --base-href /my-apps/kuri/
+      - name: Build kuri web
+        run: flutter build web --release --base-href /my-apps/kuri/
         working-directory: apps/kuri
       - uses: actions/upload-artifact@v4
         with:
@@ -52,9 +50,6 @@ jobs:
   deploy:
     needs: [build-committee, build-kuri]
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -81,9 +76,8 @@ jobs:
 </body>
 </html>
 HTMLEOF
-      - uses: actions/configure-pages@v4
-      - uses: actions/upload-pages-artifact@v3
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          path: dist
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: dist
