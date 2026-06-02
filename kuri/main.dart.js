@@ -28162,13 +28162,13 @@ aER(a){return B.c.P(A.aCW(B.mh.c2(B.bZ.c2(B.c.bT(a).toLowerCase())).a),0,24)},
 aES(a,b){return A.aCW(B.mh.c2(B.bZ.c2(B.c.bT(a)+"|"+B.c.bT(b).toLowerCase())).a)},
 a1x(a,b,c){var s=0,r=A.G(t.H),q,p,o
 var $async$a1x=A.H(function(d,e){if(d===1)return A.D(e,r)
-while(true)switch(s){case 0:q=A.dM("https://api.zeptomail.in/v1.1/email",0,null)
+while(true)switch(s){case 0:q=A.dM("https://zepto-proxy.akshay-zoho-06.workers.dev/",0,null)
 p=t.N
-o=A.as(["Accept","application/json","Content-Type","application/json","Authorization","Zoho-enczapikey PHtE6r0JEenoijYr8xZR7PbsF8KjY4Iv+u5iLQRAuI5GA/MKGk0Drt19w2S3qBYiXPlFFvXPnNk+t7icte7ULGnlZzseD2qyqK3sx/VYSPOZsbq6x00ct1gSdkzZVo/td95u0iHUuN7cNA=="],p,p)
+o=A.as(["Accept","application/json","Content-Type","application/json","X-Secret","akzapps-otp-cf-2026"],p,p)
 s=2
 return A.v(A.b1n(q,B.bY.UT(A.as(["from",A.as(["address","noreply@akzapps.in"],p,p),"to",A.b([A.as(["email_address",A.as(["address",c],p,p)],p,t.GU)],t.nI),"subject",b,"htmlbody",a],p,t.K),null),o),$async$a1x)
 case 2:q=e.b
-if(q>=300)throw A.d(A.cQ("Could not send verification email (HTTP "+q+"). Check your ZeptoMail API key and sender domain."))
+if(q>=300)throw A.d(A.cQ("Could not send verification email (HTTP "+q+")."))
 return A.E(null,r)}})
 return A.F($async$a1x,r)},
 pB(a,b){a=A.adr(0,100,a)
