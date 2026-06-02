@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../providers/providers.dart';
 import '../services/data_service.dart';
@@ -69,11 +70,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final activeIdx = ref.watch(activeCommitteeIndexProvider);
         final safeIdx = myGroups.isEmpty ? 0 : (activeIdx < myGroups.length ? activeIdx : 0);
 
+        final locale = ref.watch(localeProvider);
+        final l10n = AppL10n(locale);
+
         return Scaffold(
           backgroundColor: bgColor,
           appBar: AppBar(
-            title: const Text('Committee'),
+            title: Text(l10n.appName),
             actions: [
+              // Language toggle: EN / മ
+              TextButton(
+                onPressed: () => ref.read(localeProvider.notifier).toggle(),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  locale == AppLocale.english ? 'EN' : 'മ',
+                  style: const TextStyle(
+                    color: primaryColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
               IconButton(
                 icon: Icon(ref.watch(themeModeProvider) == ThemeMode.dark
                     ? Icons.light_mode_rounded

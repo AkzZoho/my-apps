@@ -95,12 +95,13 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
-        style: const TextStyle(
-          color: textMuted,
+        style: TextStyle(
+          color: c.textMuted,
           fontSize: 12,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.5,
@@ -121,12 +122,13 @@ class AppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: surfaceColor,
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
+        border: Border.all(color: c.border),
       ),
       child: onTap != null
           ? InkWell(
@@ -149,13 +151,14 @@ class LoadingOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Stack(
       children: [
         child,
         if (loading)
           Container(
             color: Colors.black45,
-            child: const Center(child: CircularProgressIndicator(color: primaryColor)),
+            child: Center(child: CircularProgressIndicator(color: c.primary)),
           ),
       ],
     );
@@ -173,18 +176,19 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: textDim, size: 48),
+            Icon(icon, color: c.textDim, size: 48),
             const SizedBox(height: 16),
-            Text(title, style: const TextStyle(color: textMuted, fontSize: 16, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
+            Text(title, style: TextStyle(color: c.textMuted, fontSize: 16, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
             if (subtitle != null) ...[
               const SizedBox(height: 8),
-              Text(subtitle!, style: const TextStyle(color: textDim, fontSize: 13), textAlign: TextAlign.center),
+              Text(subtitle!, style: TextStyle(color: c.textDim, fontSize: 13), textAlign: TextAlign.center),
             ],
           ],
         ),
@@ -248,8 +252,9 @@ class CopyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return IconButton(
-      icon: const Icon(Icons.copy, size: 16, color: textMuted),
+      icon: Icon(Icons.copy, size: 16, color: c.textMuted),
       onPressed: () {
         Clipboard.setData(ClipboardData(text: text));
         ScaffoldMessenger.of(context).showSnackBar(
@@ -270,7 +275,8 @@ class AppDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(color: borderColor, height: 1);
+    final c = context.colors;
+    return Divider(color: c.border, height: 1);
   }
 }
 
@@ -281,30 +287,35 @@ Future<bool> confirmDialog(
   required String title,
   required String message,
   String confirmLabel = 'Confirm',
-  Color confirmColor = dangerColor,
+  Color? confirmColor,
 }) async {
+  final c = context.colors;
+  final effectiveConfirmColor = confirmColor ?? c.danger;
   final result = await showDialog<bool>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      backgroundColor: surfaceColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: borderColor),
-      ),
-      title: Text(title, style: const TextStyle(color: textColor)),
-      content: Text(message, style: const TextStyle(color: textMuted)),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('Cancel', style: TextStyle(color: textMuted)),
+    builder: (ctx) {
+      final cc = ctx.colors;
+      return AlertDialog(
+        backgroundColor: cc.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: cc.border),
         ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: confirmColor),
-          onPressed: () => Navigator.pop(ctx, true),
-          child: Text(confirmLabel, style: const TextStyle(color: Colors.white)),
-        ),
-      ],
-    ),
+        title: Text(title, style: TextStyle(color: cc.text)),
+        content: Text(message, style: TextStyle(color: cc.textMuted)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: TextStyle(color: cc.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: effectiveConfirmColor),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(confirmLabel, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      );
+    },
   );
   return result ?? false;
 }
@@ -315,7 +326,7 @@ void showError(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(message),
-      backgroundColor: dangerColor,
+      backgroundColor: context.colors.danger,
       behavior: SnackBarBehavior.floating,
     ),
   );
@@ -325,7 +336,7 @@ void showSuccess(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(message),
-      backgroundColor: greenColor,
+      backgroundColor: context.colors.green,
       behavior: SnackBarBehavior.floating,
     ),
   );
@@ -336,7 +347,7 @@ void showSuccess(BuildContext context, String message) {
 Future<T?> showAppBottomSheet<T>(BuildContext context, Widget child) {
   return showModalBottomSheet<T>(
     context: context,
-    backgroundColor: surfaceColor,
+    backgroundColor: context.colors.surface,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -347,4 +358,3 @@ Future<T?> showAppBottomSheet<T>(BuildContext context, Widget child) {
     ),
   );
 }
-

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../providers/providers.dart';
 import '../services/data_service.dart';
@@ -80,6 +81,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final themeMode = ref.watch(themeModeProvider);
+    final l10n = AppL10n(ref.watch(localeProvider));
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -122,7 +124,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Icon(
-                              widget.appName == 'Kuri' ? Icons.savings_rounded : Icons.groups_rounded,
+                              Icons.groups_rounded,
                               color: c.primary,
                               size: 42,
                             ),
@@ -132,7 +134,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
                         // App name
                         Text(
-                          widget.appName,
+                          l10n.appName,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: c.text,
@@ -143,7 +145,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          widget.appSubtitle,
+                          l10n.appSubtitle,
                           textAlign: TextAlign.center,
                           style: TextStyle(color: c.textMuted, fontSize: 15),
                         ),

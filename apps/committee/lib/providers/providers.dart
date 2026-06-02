@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models.dart';
 import '../services/data_service.dart';
+import '../l10n.dart';
 
 // ─── Theme Mode ─────────────────────────────────────────────────────────────
 
@@ -144,3 +145,30 @@ final lastSeenProvider = StateNotifierProvider<LastSeenNotifier, Map<String, Dat
 // ─── Active Committee Index ─────────────────────────────────────────────────
 
 final activeCommitteeIndexProvider = StateProvider<int>((ref) => 0);
+
+// ─── Locale ───────────────────────────────────────────────────────────────────
+
+class LocaleNotifier extends StateNotifier<AppLocale> {
+  LocaleNotifier() : super(AppLocale.english);
+
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final val = prefs.getString('app_locale') ?? 'english';
+    state = val == 'malayalam' ? AppLocale.malayalam : AppLocale.english;
+  }
+
+  Future<void> setLocale(AppLocale locale) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        'app_locale', locale == AppLocale.malayalam ? 'malayalam' : 'english');
+    state = locale;
+  }
+
+  void toggle() {
+    setLocale(state == AppLocale.english ? AppLocale.malayalam : AppLocale.english);
+  }
+}
+
+final localeProvider = StateNotifierProvider<LocaleNotifier, AppLocale>(
+  (ref) => LocaleNotifier(),
+);
