@@ -23,7 +23,7 @@ import 'package:http/http.dart' as http;
 //
 const _kZeptoApiKey = 'PHtE6r0JEenoijYr8xZR7PbsF8KjY4Iv+u5iLQRAuI5GA/MKGk0Drt19w2S3qBYiXPlFFvXPnNk+t7icte7ULGnlZzseD2qyqK3sx/VYSPOZsbq6x00ct1gSdkzZVo/td95u0iHUuN7cNA==';
 const _kZeptoSender = 'noreply@akzapps.in'; // verified sender in ZeptoMail
-const _kGoogleClientId = 'YOUR_CLIENT_ID.apps.googleusercontent.com';
+const _kGoogleClientId = '143794639055-68ud64nik3bg818fei6ug29qa16lm9b8.apps.googleusercontent.com';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class AuthService {
