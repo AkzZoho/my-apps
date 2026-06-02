@@ -21,8 +21,8 @@ import 'package:http/http.dart' as http;
 //      e.g. https://yourusername.github.io
 //   4. Replace _kGoogleClientId below
 //
-const _kZeptoApiKey = 'YOUR_ZEPTO_MAIL_API_KEY';
-const _kZeptoSender = 'noreply@yourdomain.com'; // verified sender in ZeptoMail
+const _kZeptoApiKey = 'PHtE6r0JEenoijYr8xZR7PbsF8KjY4Iv+u5iLQRAuI5GA/MKGk0Drt19w2S3qBYiXPlFFvXPnNk+t7icte7ULGnlZzseD2qyqK3sx/VYSPOZsbq6x00ct1gSdkzZVo/td95u0iHUuN7cNA==';
+const _kZeptoSender = 'noreply@akzapps.in'; // verified sender in ZeptoMail
 const _kGoogleClientId = 'YOUR_CLIENT_ID.apps.googleusercontent.com';
 // ─────────────────────────────────────────────────────────────────────────────
 
