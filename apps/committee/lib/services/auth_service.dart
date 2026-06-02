@@ -43,10 +43,6 @@ class AuthService {
   /// Generates a 6-digit OTP, stores its hash in RTDB (expires in 10 min),
   /// and sends the code to [email] via ZeptoMail.
   static Future<void> sendOtp(String email, String appName) async {
-    if (_kZeptoApiKey == 'YOUR_ZEPTO_MAIL_API_KEY') {
-      throw Exception('ZeptoMail is not configured yet. '
-          'See auth_service.dart for setup instructions.');
-    }
     final otp = _generateOtp();
     final key = _emailKey(email);
     final exp = DateTime.now().toUtc()
