@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../providers/providers.dart';
 import '../services/data_service.dart';
@@ -22,6 +23,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _isSignUp = false;
   bool _loading = false;
   String _otpEmail = '';
+  AppL10n? _l10n;
 
   final _emailCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
@@ -56,15 +58,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   Future<void> _sendCode() async {
     final email = _emailCtrl.text.trim().toLowerCase();
     if (email.isEmpty) {
-      _showError('Please enter your email address.');
+      _showError(_l10n!.enterEmailError);
       return;
     }
     if (!email.contains('@')) {
-      _showError('Please enter a valid email address.');
+      _showError(_l10n!.validEmailError);
       return;
     }
     if (_isSignUp && _nameCtrl.text.trim().isEmpty) {
-      _showError('Please enter your full name.');
+      _showError(_l10n!.enterNameError);
       return;
     }
 
@@ -76,11 +78,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           (u) => u.email.trim().toLowerCase() == email,
         );
         if (!exists) {
-          _showError('No account found for this email. Please sign up.');
+          _showError(_l10n!.noAccountError);
           return;
         }
       } catch (e) {
-        _showError('Something went wrong. Please try again.');
+        _showError(_l10n!.somethingWentWrong);
         return;
       } finally {
         if (mounted) setState(() => _loading = false);
@@ -109,20 +111,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   Future<void> _verifyOtp() async {
     final code = _otpCtrl.text.trim();
     if (code.length < 6) {
-      _showError('Please enter the 6-digit code.');
+      _showError(_l10n!.enterOtpError);
       return;
     }
     setState(() => _loading = true);
     try {
       final ok = await AuthService.verifyOtp(_otpEmail, code);
       if (!ok) {
-        if (mounted) _showError('Invalid or expired code. Please try again.');
+        if (mounted) _showError(_l10n!.invalidCode);
         return;
       }
       final name = _isSignUp ? _nameCtrl.text.trim() : '';
       await _finishAuth(email: _otpEmail, name: name);
     } catch (e) {
-      if (mounted) _showError('Something went wrong. Please try again.');
+      if (mounted) _showError(_l10n!.somethingWentWrong);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -135,7 +137,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (mounted) {
         _otpCtrl.clear();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('New code sent!')),
+          SnackBar(content: Text(_l10n!.newCodeSent)),
         );
       }
     } catch (e) {
@@ -156,7 +158,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       user = existing;
     } else {
       if (name.trim().isEmpty) {
-        throw Exception('Name is required to create an account.');
+        throw Exception(_l10n!.nameRequiredToCreate);
       }
       user = await dataService.createUser(name.trim(), email);
     }
@@ -176,6 +178,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final themeMode = ref.watch(themeModeProvider);
+    _l10n = AppL10n(ref.watch(localeProvider));
+    final l10n = _l10n!;
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -196,7 +200,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     color: c.textMuted,
                   ),
                   onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
-                  tooltip: 'Toggle theme',
+                  tooltip: l10n.toggleTheme,
                 ),
               ),
               Center(
@@ -219,8 +223,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         ),
                       ),
                       child: _step == _Step.email
-                          ? _buildEmailStep(c)
-                          : _buildOtpStep(c),
+                          ? _buildEmailStep(c, l10n)
+                          : _buildOtpStep(c, l10n),
                     ),
                   ),
                 ),
@@ -232,7 +236,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 
-  Widget _buildEmailStep(AppColors c) {
+  Widget _buildEmailStep(AppColors c, AppL10n l10n) {
     return Column(
       key: const ValueKey('email'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -270,6 +274,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         _GoogleSignInButton(
           loading: _loading,
           onPressed: _loading ? null : _handleGoogleSignIn,
+          l10n: l10n,
         ),
 
         const SizedBox(height: 20),
@@ -278,7 +283,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             Expanded(child: Divider(color: c.border)),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text('or',
+              child: Text(l10n.or,
                   style: TextStyle(color: c.textMuted, fontSize: 13)),
             ),
             Expanded(child: Divider(color: c.border)),
@@ -296,12 +301,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           padding: const EdgeInsets.all(4),
           child: Row(
             children: [
-              _segBtn('Log In', !_isSignUp, c, () {
+              _segBtn(l10n.logIn, !_isSignUp, c, () {
                 setState(() => _isSignUp = false);
                 Future.delayed(const Duration(milliseconds: 100),
                     () => _emailFocus.requestFocus());
               }),
-              _segBtn('Sign Up', _isSignUp, c, () {
+              _segBtn(l10n.signUp, _isSignUp, c, () {
                 setState(() => _isSignUp = true);
                 Future.delayed(const Duration(milliseconds: 100),
                     () => _nameFocus.requestFocus());
@@ -337,7 +342,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             style: TextStyle(color: c.text),
                             onSubmitted: (_) => _emailFocus.requestFocus(),
                             decoration: InputDecoration(
-                              labelText: 'Full Name',
+                              labelText: l10n.fullName,
                               prefixIcon: Icon(
                                   Icons.person_outline_rounded,
                                   color: c.textMuted),
@@ -358,7 +363,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 style: TextStyle(color: c.text),
                 onSubmitted: (_) => _sendCode(),
                 decoration: InputDecoration(
-                  labelText: 'Email Address',
+                  labelText: l10n.emailAddress,
                   prefixIcon:
                       Icon(Icons.email_outlined, color: c.textMuted),
                 ),
@@ -374,7 +379,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: c.primaryFg),
                         )
-                      : const Text('Send Code'),
+                      : Text(l10n.sendCode),
                 ),
               ),
             ],
@@ -384,7 +389,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 
-  Widget _buildOtpStep(AppColors c) {
+  Widget _buildOtpStep(AppColors c, AppL10n l10n) {
     return Column(
       key: const ValueKey('otp'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -399,7 +404,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       _otpCtrl.clear();
                     }),
             icon: Icon(Icons.arrow_back_rounded, size: 18, color: c.textMuted),
-            label: Text('Back', style: TextStyle(color: c.textMuted)),
+            label: Text(l10n.back, style: TextStyle(color: c.textMuted)),
           ),
         ),
         const SizedBox(height: 16),
@@ -416,14 +421,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         ),
         const SizedBox(height: 20),
         Text(
-          'Check your email',
+          l10n.checkYourEmail,
           textAlign: TextAlign.center,
           style: TextStyle(
               color: c.text, fontSize: 24, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
         Text(
-          'We sent a 6-digit code to\n$_otpEmail',
+          '${l10n.weSentCodeTo}\n$_otpEmail',
           textAlign: TextAlign.center,
           style: TextStyle(color: c.textMuted, fontSize: 14, height: 1.5),
         ),
@@ -476,7 +481,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: c.primaryFg),
                         )
-                      : const Text('Verify'),
+                      : Text(l10n.verify),
                 ),
               ),
             ],
@@ -486,12 +491,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text("Didn't receive it? ",
+            Text('${l10n.didntReceive} ',
                 style: TextStyle(color: c.textMuted, fontSize: 14)),
             GestureDetector(
               onTap: _loading ? null : _resendCode,
               child: Text(
-                'Resend',
+                l10n.resend,
                 style: TextStyle(
                   color: _loading ? c.textMuted : c.primary,
                   fontSize: 14,
@@ -534,8 +539,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 class _GoogleSignInButton extends StatelessWidget {
   final bool loading;
   final VoidCallback? onPressed;
+  final AppL10n l10n;
 
-  const _GoogleSignInButton({required this.loading, this.onPressed});
+  const _GoogleSignInButton({required this.loading, this.onPressed, required this.l10n});
 
   @override
   Widget build(BuildContext context) {
@@ -579,7 +585,7 @@ class _GoogleSignInButton extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Continue with Google',
+                    l10n.continueWithGoogle,
                     style: TextStyle(
                       color: c.text,
                       fontSize: 15,

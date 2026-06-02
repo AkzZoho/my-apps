@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../providers/providers.dart';
 import '../services/data_service.dart';
@@ -29,18 +30,19 @@ class CommitteeDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
     final user = ref.watch(currentUserProvider);
     final appDataAsync = ref.watch(appDataProvider);
 
     return appDataAsync.when(
       loading: () => Scaffold(
         backgroundColor: c.bg,
-        appBar: AppBar(title: const Text('Members')),
+        appBar: AppBar(title: Text(l10n.members)),
         body: Center(child: CircularProgressIndicator(color: c.primary)),
       ),
       error: (e, _) => Scaffold(
         backgroundColor: c.bg,
-        appBar: AppBar(title: const Text('Error')),
+        appBar: AppBar(title: Text(l10n.error)),
         body: Center(child: Text('$e', style: TextStyle(color: c.danger))),
       ),
       data: (data) {
@@ -52,9 +54,9 @@ class CommitteeDetailScreen extends ConsumerWidget {
         if (group.id.isEmpty) {
           return Scaffold(
             backgroundColor: c.bg,
-            appBar: AppBar(title: const Text('Members')),
+            appBar: AppBar(title: Text(l10n.members)),
             body:
-                Center(child: Text('Committee not found', style: TextStyle(color: c.textMuted))),
+                Center(child: Text(l10n.committeeNotFound, style: TextStyle(color: c.textMuted))),
           );
         }
         final isAdmin = user?.id == group.createdBy;
@@ -66,7 +68,7 @@ class CommitteeDetailScreen extends ConsumerWidget {
               if (isAdmin)
                 IconButton(
                   icon: const Icon(Icons.edit_outlined),
-                  tooltip: 'Edit committee',
+                  tooltip: l10n.editCommittee,
                   onPressed: () =>
                       showAppBottomSheet(context, _EditCommitteeSheet(group: group)),
                 ),
@@ -159,18 +161,19 @@ class _CommitteeChatScreenState extends ConsumerState<CommitteeChatScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
     final user = ref.watch(currentUserProvider);
     final appDataAsync = ref.watch(appDataProvider);
 
     return appDataAsync.when(
       loading: () => Scaffold(
         backgroundColor: c.bg,
-        appBar: AppBar(title: const Text('Chat')),
+        appBar: AppBar(title: Text(l10n.chat)),
         body: Center(child: CircularProgressIndicator(color: c.primary)),
       ),
       error: (e, _) => Scaffold(
         backgroundColor: c.bg,
-        appBar: AppBar(title: const Text('Chat')),
+        appBar: AppBar(title: Text(l10n.chat)),
         body: Center(child: Text('$e', style: TextStyle(color: c.danger))),
       ),
       data: (data) {
@@ -182,9 +185,9 @@ class _CommitteeChatScreenState extends ConsumerState<CommitteeChatScreen> {
         if (group.id.isEmpty) {
           return Scaffold(
             backgroundColor: c.bg,
-            appBar: AppBar(title: const Text('Chat')),
+            appBar: AppBar(title: Text(l10n.chat)),
             body:
-                Center(child: Text('Committee not found', style: TextStyle(color: c.textMuted))),
+                Center(child: Text(l10n.committeeNotFound, style: TextStyle(color: c.textMuted))),
           );
         }
 
@@ -200,10 +203,10 @@ class _CommitteeChatScreenState extends ConsumerState<CommitteeChatScreen> {
             children: [
               Expanded(
                 child: messages.isEmpty
-                    ? const EmptyState(
+                    ? EmptyState(
                         icon: Icons.chat_bubble_outline,
-                        title: 'No messages yet',
-                        subtitle: 'Be the first to say something!',
+                        title: l10n.noMessagesYet,
+                        subtitle: l10n.beFirstToSay,
                       )
                     : ListView.builder(
                         controller: _scrollController,
@@ -216,7 +219,7 @@ class _CommitteeChatScreenState extends ConsumerState<CommitteeChatScreen> {
                         },
                       ),
               ),
-              _buildInputBar(c),
+              _buildInputBar(c, l10n),
             ],
           ),
         );
@@ -224,7 +227,7 @@ class _CommitteeChatScreenState extends ConsumerState<CommitteeChatScreen> {
     );
   }
 
-  Widget _buildInputBar(AppColors c) {
+  Widget _buildInputBar(AppColors c, AppL10n l10n) {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
@@ -237,9 +240,9 @@ class _CommitteeChatScreenState extends ConsumerState<CommitteeChatScreen> {
             child: TextField(
               controller: _controller,
               style: TextStyle(color: c.text),
-              decoration: const InputDecoration(
-                hintText: 'Type a message...',
-                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: InputDecoration(
+                hintText: l10n.typeMessage,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 isDense: true,
               ),
               onSubmitted: (_) => _send(widget.groupId),
@@ -278,18 +281,19 @@ class CommitteeSettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
     final user = ref.watch(currentUserProvider);
     final appDataAsync = ref.watch(appDataProvider);
 
     return appDataAsync.when(
       loading: () => Scaffold(
         backgroundColor: c.bg,
-        appBar: AppBar(title: const Text('Settings')),
+        appBar: AppBar(title: Text(l10n.settings)),
         body: Center(child: CircularProgressIndicator(color: c.primary)),
       ),
       error: (e, _) => Scaffold(
         backgroundColor: c.bg,
-        appBar: AppBar(title: const Text('Settings')),
+        appBar: AppBar(title: Text(l10n.settings)),
         body: Center(child: Text('$e', style: TextStyle(color: c.danger))),
       ),
       data: (data) {
@@ -301,9 +305,9 @@ class CommitteeSettingsScreen extends ConsumerWidget {
         if (group.id.isEmpty) {
           return Scaffold(
             backgroundColor: c.bg,
-            appBar: AppBar(title: const Text('Settings')),
+            appBar: AppBar(title: Text(l10n.settings)),
             body: Center(
-                child: Text('Committee not found', style: TextStyle(color: c.textMuted))),
+                child: Text(l10n.committeeNotFound, style: TextStyle(color: c.textMuted))),
           );
         }
 
@@ -344,7 +348,7 @@ class CommitteeSettingsScreen extends ConsumerWidget {
                         children: [
                           Icon(Icons.people_outline, size: 14, color: c.textDim),
                           const SizedBox(width: 4),
-                          Text('${group.members.length} members',
+                          Text('${group.members.length} ${l10n.membersLabel}',
                               style: TextStyle(color: c.textDim, fontSize: 12)),
                           const SizedBox(width: 16),
                           Icon(Icons.calendar_today, size: 14, color: c.textDim),
@@ -363,13 +367,13 @@ class CommitteeSettingsScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   _SettingsTile(
                     icon: Icons.edit_outlined,
-                    label: 'Edit Committee',
+                    label: l10n.editCommittee,
                     onTap: () => showAppBottomSheet(context, _EditCommitteeSheet(group: group)),
                   ),
                   const SizedBox(height: 8),
                   _SettingsTile(
                     icon: Icons.person_add_outlined,
-                    label: 'Invite Member',
+                    label: l10n.inviteMember,
                     onTap: user != null
                         ? () => showAppBottomSheet(
                             context, _InviteMemberSheet(group: group, user: user))
@@ -377,7 +381,7 @@ class CommitteeSettingsScreen extends ConsumerWidget {
                   ),
                   if (pendingInvitations.isNotEmpty) ...[
                     const SizedBox(height: 16),
-                    const SectionTitle('PENDING INVITATIONS'),
+                    SectionTitle(l10n.pendingInvitations),
                     const SizedBox(height: 8),
                     ...pendingInvitations.map((inv) => Padding(
                           padding: const EdgeInsets.only(bottom: 8),
@@ -394,7 +398,7 @@ class CommitteeSettingsScreen extends ConsumerWidget {
                                           style: TextStyle(color: c.text, fontSize: 13)),
                                       Row(
                                         children: [
-                                          Text('Code: ${inv.inviteCode}',
+                                          Text('${l10n.codeLabel} ${inv.inviteCode}',
                                               style:
                                                   TextStyle(color: c.textMuted, fontSize: 12)),
                                           CopyButton(inv.inviteCode),
@@ -403,7 +407,7 @@ class CommitteeSettingsScreen extends ConsumerWidget {
                                     ],
                                   ),
                                 ),
-                                StatusBadge(label: 'Pending', color: c.warn),
+                                StatusBadge(label: l10n.pending, color: c.warn),
                               ],
                             ),
                           ),
@@ -419,8 +423,8 @@ class CommitteeSettingsScreen extends ConsumerWidget {
                       side: BorderSide(color: c.danger.withOpacity(0.5)),
                     ),
                     icon: const Icon(Icons.exit_to_app, size: 18),
-                    label: const Text('Leave Committee'),
-                    onPressed: () => _leaveCommittee(context, ref, group, user),
+                    label: Text(l10n.leaveCommittee),
+                    onPressed: () => _leaveCommittee(context, ref, group, user, l10n),
                   ),
                 ],
               ],
@@ -432,12 +436,12 @@ class CommitteeSettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _leaveCommittee(
-      BuildContext context, WidgetRef ref, Group group, AppUser user) async {
+      BuildContext context, WidgetRef ref, Group group, AppUser user, AppL10n l10n) async {
     final confirmed = await confirmDialog(
       context,
-      title: 'Leave Committee',
-      message: 'Are you sure you want to leave "${group.name}"?',
-      confirmLabel: 'Leave',
+      title: l10n.leaveCommittee,
+      message: '${l10n.areYouSureLeave} "${group.name}"?',
+      confirmLabel: l10n.leave,
     );
     if (!confirmed || !context.mounted) return;
     try {
@@ -446,7 +450,7 @@ class CommitteeSettingsScreen extends ConsumerWidget {
       ref.read(appDataProvider.notifier).updateState(data);
       if (context.mounted) {
         Navigator.pop(context);
-        showSuccess(context, 'You left ${group.name}');
+        showSuccess(context, '${l10n.youLeft} ${group.name}');
       }
     } catch (e) {
       if (context.mounted) showError(context, '$e');
@@ -507,6 +511,7 @@ class _MembersBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
     final pendingInvitations = data.invitations
         .where((inv) => inv.groupId == group.id && inv.status == 'pending')
         .toList();
@@ -522,7 +527,7 @@ class _MembersBody extends ConsumerWidget {
               child: ElevatedButton.icon(
                 onPressed: () => _showInviteSheet(context, ref),
                 icon: const Icon(Icons.person_add, size: 16),
-                label: const Text('+ Invite Member'),
+                label: Text(l10n.inviteMemberBtn),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   textStyle: const TextStyle(fontSize: 13),
@@ -530,7 +535,7 @@ class _MembersBody extends ConsumerWidget {
               ),
             ),
           const SizedBox(height: 12),
-          const SectionTitle('MEMBERS'),
+          SectionTitle(l10n.membersSection),
           ...group.members.map((member) {
             final memberUser = data.users.firstWhere(
               (u) => u.id == member.userId,
@@ -554,7 +559,7 @@ class _MembersBody extends ConsumerWidget {
                     ),
                   ),
                   StatusBadge(
-                    label: member.role == 'admin' ? 'Admin' : 'Member',
+                    label: member.role == 'admin' ? l10n.admin : l10n.memberRole,
                     color: member.role == 'admin' ? c.primary : c.textMuted,
                   ),
                   if (canRemove) ...[
@@ -570,9 +575,9 @@ class _MembersBody extends ConsumerWidget {
                         if (val == 'remove') {
                           final confirmed = await confirmDialog(
                             context,
-                            title: 'Remove Member',
+                            title: l10n.removeMember,
                             message: 'Remove ${memberUser.name} from ${group.name}?',
-                            confirmLabel: 'Remove',
+                            confirmLabel: l10n.removeMember,
                           );
                           if (confirmed && context.mounted) {
                             try {
@@ -580,7 +585,7 @@ class _MembersBody extends ConsumerWidget {
                                   group.id, currentUser!.id, member.userId);
                               final newData = await dataService.getData();
                               ref.read(appDataProvider.notifier).updateState(newData);
-                              if (context.mounted) showSuccess(context, 'Member removed.');
+                              if (context.mounted) showSuccess(context, l10n.memberRemoved);
                             } catch (e) {
                               if (context.mounted) showError(context, '$e');
                             }
@@ -594,7 +599,7 @@ class _MembersBody extends ConsumerWidget {
                             children: [
                               Icon(Icons.person_remove, color: c.danger, size: 16),
                               const SizedBox(width: 8),
-                              Text('Remove Member', style: TextStyle(color: c.danger)),
+                              Text(l10n.removeMember, style: TextStyle(color: c.danger)),
                             ],
                           ),
                         ),
@@ -607,7 +612,7 @@ class _MembersBody extends ConsumerWidget {
           }),
           if (pendingInvitations.isNotEmpty) ...[
             const SizedBox(height: 8),
-            const SectionTitle('PENDING INVITATIONS'),
+            SectionTitle(l10n.pendingInvitations),
             ...pendingInvitations.map((inv) => AppCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -620,7 +625,7 @@ class _MembersBody extends ConsumerWidget {
                             child: Text(inv.inviteeEmail,
                                 style: TextStyle(color: c.text, fontSize: 13)),
                           ),
-                          StatusBadge(label: 'Pending', color: c.warn),
+                          StatusBadge(label: l10n.pending, color: c.warn),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -788,6 +793,7 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
   final _emailCtrl = TextEditingController();
   bool _loading = false;
   Invitation? _newInvitation;
+  AppL10n? _l10n;
 
   @override
   void dispose() {
@@ -798,7 +804,7 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
   Future<void> _submit() async {
     final email = _emailCtrl.text.trim().toLowerCase();
     if (email.isEmpty) {
-      showError(context, 'Email is required.');
+      showError(context, _l10n!.enterEmailError);
       return;
     }
     setState(() => _loading = true);
@@ -818,6 +824,8 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
+    _l10n = l10n;
     return Container(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -826,7 +834,7 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
         children: [
           Row(
             children: [
-              Text('Invite Member',
+              Text(l10n.inviteMember,
                   style: TextStyle(color: c.text, fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
               IconButton(
@@ -839,8 +847,8 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
             style: TextStyle(color: c.text),
-            decoration: const InputDecoration(
-              labelText: 'Member Email',
+            decoration: InputDecoration(
+              labelText: l10n.memberEmail,
               hintText: 'user@example.com',
             ),
             onSubmitted: (_) => _submit(),
@@ -854,7 +862,7 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
                     width: 20,
                     child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
                   )
-                : const Text('Send Invite'),
+                : Text(l10n.sendInvite),
           ),
           if (_newInvitation != null) ...[
             const SizedBox(height: 16),
@@ -868,7 +876,7 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Invitation created!',
+                  Text(l10n.invitationCreated,
                       style: TextStyle(color: c.green, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   Row(
@@ -897,9 +905,9 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
                           Clipboard.setData(
                               ClipboardData(text: _newInvitation!.inviteCode));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Code copied!'),
-                                duration: Duration(seconds: 1)),
+                            SnackBar(
+                                content: Text(l10n.codeCopied),
+                                duration: const Duration(seconds: 1)),
                           );
                         },
                         padding: const EdgeInsets.all(4),
@@ -916,7 +924,7 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
                         side: const BorderSide(color: Color(0xFF25D366)),
                       ),
                       icon: const Icon(Icons.share, size: 16),
-                      label: const Text('Share via WhatsApp'),
+                      label: Text(l10n.shareViaWhatsApp),
                       onPressed: () => _shareViaWhatsApp(
                           context, widget.group.name, _newInvitation!.inviteCode),
                     ),
@@ -946,6 +954,7 @@ class _EditCommitteeSheetState extends ConsumerState<_EditCommitteeSheet> {
   late TextEditingController _nameCtrl;
   late TextEditingController _descCtrl;
   bool _loading = false;
+  AppL10n? _l10n;
 
   @override
   void initState() {
@@ -964,14 +973,14 @@ class _EditCommitteeSheetState extends ConsumerState<_EditCommitteeSheet> {
   Future<void> _save() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      showError(context, 'Committee name is required.');
+      showError(context, _l10n!.committeeNameRequired);
       return;
     }
     setState(() => _loading = true);
     try {
       final data = await dataService.getData();
       final idx = data.groups.indexWhere((g) => g.id == widget.group.id);
-      if (idx < 0) throw Exception('Committee not found.');
+      if (idx < 0) throw Exception(_l10n!.committeeNotFound);
       final updated = data.groups[idx].copyWith(
         name: name,
         description: _descCtrl.text.trim(),
@@ -995,6 +1004,8 @@ class _EditCommitteeSheetState extends ConsumerState<_EditCommitteeSheet> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
+    _l10n = l10n;
     return Container(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -1003,7 +1014,7 @@ class _EditCommitteeSheetState extends ConsumerState<_EditCommitteeSheet> {
         children: [
           Row(
             children: [
-              Text('Edit Committee',
+              Text(l10n.editCommittee,
                   style: TextStyle(color: c.text, fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
               IconButton(
@@ -1015,13 +1026,13 @@ class _EditCommitteeSheetState extends ConsumerState<_EditCommitteeSheet> {
           TextField(
             controller: _nameCtrl,
             style: TextStyle(color: c.text),
-            decoration: const InputDecoration(labelText: 'Committee Name *'),
+            decoration: InputDecoration(labelText: '${l10n.committeeName} *'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _descCtrl,
             style: TextStyle(color: c.text),
-            decoration: const InputDecoration(labelText: 'Description (optional)'),
+            decoration: InputDecoration(labelText: l10n.description),
             maxLines: 2,
           ),
           const SizedBox(height: 20),
@@ -1033,7 +1044,7 @@ class _EditCommitteeSheetState extends ConsumerState<_EditCommitteeSheet> {
                     width: 20,
                     child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
                   )
-                : const Text('Save Changes'),
+                : Text(l10n.saveChanges),
           ),
         ],
       ),

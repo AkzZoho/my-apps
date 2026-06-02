@@ -119,7 +119,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ? Icons.light_mode_rounded
                     : Icons.dark_mode_rounded),
                 onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
-                tooltip: 'Toggle theme',
+                tooltip: l10n.toggleTheme,
               ),
               Stack(
                 alignment: Alignment.center,
@@ -216,6 +216,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context,
       Builder(builder: (ctx) {
         final c = ctx.colors;
+        final l10n = AppL10n(ref.read(localeProvider));
         return Container(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -224,7 +225,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               Row(
                 children: [
-                  Text('My Committees',
+                  Text(l10n.myCommittees,
                       style: TextStyle(color: c.text, fontSize: 18, fontWeight: FontWeight.bold)),
                   const Spacer(),
                   IconButton(
@@ -254,7 +255,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       style: TextStyle(
                           color: c.text,
                           fontWeight: isActive ? FontWeight.w600 : FontWeight.normal)),
-                  subtitle: Text('${g.members.length} members',
+                  subtitle: Text('${g.members.length} ${l10n.membersLabel}',
                       style: TextStyle(color: c.textMuted, fontSize: 12)),
                   trailing: isActive ? Icon(Icons.check, color: c.primary) : null,
                   onTap: () {
@@ -271,7 +272,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       style: OutlinedButton.styleFrom(
                           foregroundColor: c.primary, side: BorderSide(color: c.border)),
                       icon: const Icon(Icons.link, size: 16),
-                      label: const Text('Join'),
+                      label: Text(l10n.join),
                       onPressed: () {
                         Navigator.pop(ctx);
                         showAppBottomSheet(context, _JoinCommitteeSheet(user: user));
@@ -282,7 +283,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Expanded(
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Create'),
+                      label: Text(l10n.create),
                       onPressed: () {
                         Navigator.pop(ctx);
                         showAppBottomSheet(context, _CreateCommitteeSheet(user: user));
@@ -308,6 +309,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context,
       Builder(builder: (ctx) {
         final cc = ctx.colors;
+        final l10n = AppL10n(ref.read(localeProvider));
         return Container(
           padding: const EdgeInsets.all(20),
           constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
@@ -316,7 +318,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               Row(
                 children: [
-                  Text('Notifications',
+                  Text(l10n.notifications,
                       style: TextStyle(color: cc.text, fontSize: 18, fontWeight: FontWeight.bold)),
                   const Spacer(),
                   IconButton(
@@ -327,10 +329,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 12),
               Expanded(
                 child: notifs.isEmpty
-                    ? const EmptyState(
+                    ? EmptyState(
                         icon: Icons.notifications_none,
-                        title: 'No notifications',
-                        subtitle: 'You are all caught up!',
+                        title: l10n.noNotifications,
+                        subtitle: l10n.allCaughtUp,
                       )
                     : ListView.builder(
                         itemCount: notifs.length,
@@ -385,13 +387,14 @@ class _NoCommitteesView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (pendingInvitations.isNotEmpty) ...[
-            const SectionTitle('PENDING INVITATIONS'),
+            SectionTitle(l10n.pendingInvitations),
             ...pendingInvitations.map((inv) {
               final group = data.groups.firstWhere(
                 (g) => g.id == inv.groupId,
@@ -410,7 +413,7 @@ class _NoCommitteesView extends ConsumerWidget {
                           Text(group.name,
                               style: TextStyle(
                                   color: c.text, fontWeight: FontWeight.w600)),
-                          Text('Code: ${inv.inviteCode}',
+                          Text('${l10n.codeLabel} ${inv.inviteCode}',
                               style: TextStyle(color: c.textMuted, fontSize: 12)),
                         ],
                       ),
@@ -421,7 +424,7 @@ class _NoCommitteesView extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         textStyle: const TextStyle(fontSize: 13),
                       ),
-                      child: const Text('Join'),
+                      child: Text(l10n.join),
                     ),
                   ],
                 ),
@@ -429,16 +432,16 @@ class _NoCommitteesView extends ConsumerWidget {
             }),
             const SizedBox(height: 16),
           ],
-          const EmptyState(
+          EmptyState(
             icon: Icons.account_balance,
-            title: 'No committees yet',
-            subtitle: 'Create one or join with an invite code',
+            title: l10n.noCommitteesYet,
+            subtitle: l10n.createOrJoin,
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: () => showAppBottomSheet(context, _CreateCommitteeSheet(user: user)),
             icon: const Icon(Icons.add),
-            label: const Text('Create Committee'),
+            label: Text(l10n.createCommittee),
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
@@ -448,7 +451,7 @@ class _NoCommitteesView extends ConsumerWidget {
             ),
             onPressed: () => showAppBottomSheet(context, _JoinCommitteeSheet(user: user)),
             icon: const Icon(Icons.link),
-            label: const Text('Join via Invite Code'),
+            label: Text(l10n.joinViaInviteCode),
           ),
         ],
       ),
@@ -490,6 +493,7 @@ class _CommitteeBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
     final activeGroup = myGroups[activeIdx];
     final isAdmin = activeGroup.createdBy == user.id;
 
@@ -542,7 +546,7 @@ class _CommitteeBody extends ConsumerWidget {
                       ),
                     ),
                     StatusBadge(
-                      label: isAdmin ? 'Admin' : 'Member',
+                      label: isAdmin ? l10n.admin : l10n.memberRole,
                       color: isAdmin ? c.primary : c.textMuted,
                     ),
                   ],
@@ -579,7 +583,7 @@ class _CommitteeBody extends ConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Members (${activeGroup.members.length})',
+                      '${l10n.members} (${activeGroup.members.length})',
                       style: TextStyle(color: c.text),
                     ),
                   ),
@@ -609,7 +613,7 @@ class _CommitteeBody extends ConsumerWidget {
                   Icon(Icons.chat_bubble_outline, color: c.primary, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text('Chat', style: TextStyle(color: c.text)),
+                    child: Text(l10n.chat, style: TextStyle(color: c.text)),
                   ),
                   if (unread > 0) ...[
                     Container(
@@ -649,7 +653,7 @@ class _CommitteeBody extends ConsumerWidget {
                     children: [
                       Icon(Icons.mail_outline, color: c.warn, size: 18),
                       const SizedBox(width: 8),
-                      Text('Pending Invitations',
+                      Text(l10n.pendingInvitations,
                           style: TextStyle(
                               color: c.warn, fontWeight: FontWeight.w600, fontSize: 14)),
                     ],
@@ -672,7 +676,7 @@ class _CommitteeBody extends ConsumerWidget {
                                 Text(group.name,
                                     style: TextStyle(
                                         color: c.text, fontWeight: FontWeight.w500, fontSize: 13)),
-                                Text('Code: ${inv.inviteCode}',
+                                Text('${l10n.codeLabel} ${inv.inviteCode}',
                                     style: TextStyle(color: c.textMuted, fontSize: 11)),
                               ],
                             ),
@@ -683,7 +687,7 @@ class _CommitteeBody extends ConsumerWidget {
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                               textStyle: const TextStyle(fontSize: 12),
                             ),
-                            child: const Text('Join'),
+                            child: Text(l10n.join),
                           ),
                         ],
                       ),
@@ -728,6 +732,7 @@ class _CreateCommitteeSheetState extends ConsumerState<_CreateCommitteeSheet> {
   final _emailCtrl = TextEditingController();
   final List<String> _emails = [];
   bool _loading = false;
+  AppL10n? _l10n;
 
   @override
   void dispose() {
@@ -749,7 +754,7 @@ class _CreateCommitteeSheetState extends ConsumerState<_CreateCommitteeSheet> {
   Future<void> _submit() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      showError(context, 'Committee name is required.');
+      showError(context, _l10n!.committeeNameRequired);
       return;
     }
     setState(() => _loading = true);
@@ -771,6 +776,8 @@ class _CreateCommitteeSheetState extends ConsumerState<_CreateCommitteeSheet> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
+    _l10n = l10n;
     return Container(
       padding: const EdgeInsets.all(20),
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
@@ -781,7 +788,7 @@ class _CreateCommitteeSheetState extends ConsumerState<_CreateCommitteeSheet> {
           children: [
             Row(
               children: [
-                Text('Create Committee',
+                Text(l10n.createCommittee,
                     style: TextStyle(color: c.text, fontSize: 18, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 IconButton(
@@ -793,13 +800,13 @@ class _CreateCommitteeSheetState extends ConsumerState<_CreateCommitteeSheet> {
             TextField(
               controller: _nameCtrl,
               style: TextStyle(color: c.text),
-              decoration: const InputDecoration(labelText: 'Committee Name *'),
+              decoration: InputDecoration(labelText: '${l10n.committeeName} *'),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _descCtrl,
               style: TextStyle(color: c.text),
-              decoration: const InputDecoration(labelText: 'Description (optional)'),
+              decoration: InputDecoration(labelText: l10n.description),
               maxLines: 2,
             ),
             const SizedBox(height: 12),
@@ -810,8 +817,8 @@ class _CreateCommitteeSheetState extends ConsumerState<_CreateCommitteeSheet> {
                     controller: _emailCtrl,
                     keyboardType: TextInputType.emailAddress,
                     style: TextStyle(color: c.text),
-                    decoration: const InputDecoration(
-                      labelText: 'Invite member email',
+                    decoration: InputDecoration(
+                      labelText: l10n.inviteMemberEmail,
                       hintText: 'user@example.com',
                     ),
                     onSubmitted: (_) => _addEmail(),
@@ -849,7 +856,7 @@ class _CreateCommitteeSheetState extends ConsumerState<_CreateCommitteeSheet> {
                       width: 20,
                       child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
                     )
-                  : const Text('Create Committee'),
+                  : Text(l10n.createCommittee),
             ),
           ],
         ),
@@ -872,6 +879,7 @@ class _JoinCommitteeSheet extends ConsumerStatefulWidget {
 class _JoinCommitteeSheetState extends ConsumerState<_JoinCommitteeSheet> {
   final _codeCtrl = TextEditingController();
   bool _loading = false;
+  AppL10n? _l10n;
 
   @override
   void dispose() {
@@ -882,7 +890,7 @@ class _JoinCommitteeSheetState extends ConsumerState<_JoinCommitteeSheet> {
   Future<void> _submit() async {
     final code = _codeCtrl.text.trim().toUpperCase();
     if (code.length != 6) {
-      showError(context, 'Enter a 6-character invite code.');
+      showError(context, _l10n!.enter6CharCode);
       return;
     }
     setState(() => _loading = true);
@@ -905,6 +913,8 @@ class _JoinCommitteeSheetState extends ConsumerState<_JoinCommitteeSheet> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
+    _l10n = l10n;
     return Container(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -913,7 +923,7 @@ class _JoinCommitteeSheetState extends ConsumerState<_JoinCommitteeSheet> {
         children: [
           Row(
             children: [
-              Text('Join Committee',
+              Text(l10n.joinCommittee,
                   style: TextStyle(color: c.text, fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
               IconButton(
@@ -926,8 +936,8 @@ class _JoinCommitteeSheetState extends ConsumerState<_JoinCommitteeSheet> {
             controller: _codeCtrl,
             style: TextStyle(color: c.text, letterSpacing: 2),
             textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(
-              labelText: '6-Character Invite Code',
+            decoration: InputDecoration(
+              labelText: l10n.sixCharCode,
               hintText: 'ABC123',
             ),
             maxLength: 6,
@@ -942,7 +952,7 @@ class _JoinCommitteeSheetState extends ConsumerState<_JoinCommitteeSheet> {
                     width: 20,
                     child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
                   )
-                : const Text('Join Committee'),
+                : Text(l10n.joinCommittee),
           ),
         ],
       ),

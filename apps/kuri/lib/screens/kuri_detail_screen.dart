@@ -71,14 +71,15 @@ Widget _receiptThumbnail(
   );
 }
 
-class _ReceiptViewerDialog extends StatelessWidget {
+class _ReceiptViewerDialog extends ConsumerWidget {
   final Uint8List bytes;
   final String filename;
 
   const _ReceiptViewerDialog({required this.bytes, required this.filename});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppL10n(ref.watch(localeProvider));
     return Dialog.fullscreen(
       backgroundColor: Colors.black,
       child: SafeArea(
@@ -100,7 +101,7 @@ class _ReceiptViewerDialog extends StatelessWidget {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.white),
-                      tooltip: 'Close',
+                      tooltip: l10n.close,
                       onPressed: () => Navigator.pop(context),
                     ),
                     const Spacer(),
@@ -143,15 +144,16 @@ class KuriDetailScreen extends ConsumerStatefulWidget {
 
 class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
   bool _loading = false;
+  AppL10n? _l10n;
 
   Future<void> _deleteKuri(KuriPlan kuri) async {
     final user = ref.read(currentUserProvider);
     if (user == null) return;
     final confirmed = await confirmDialog(
       context,
-      title: 'Delete Kuri',
-      message: 'Are you sure you want to delete "${kuri.name}"? This cannot be undone.',
-      confirmLabel: 'Delete',
+      title: _l10n!.deleteKuri,
+      message: '${_l10n!.areYouSureDelete} "${kuri.name}"? ${_l10n!.cannotUndo}',
+      confirmLabel: _l10n!.delete,
     );
     if (!confirmed || !mounted) return;
     setState(() => _loading = true);
@@ -161,7 +163,7 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
       ref.read(appDataProvider.notifier).updateState(data);
       if (mounted) {
         Navigator.pop(context);
-        showSuccess(context, 'Kuri deleted.');
+        showSuccess(context, _l10n!.kuriDeleted);
       }
     } catch (e) {
       if (mounted) showError(context, '$e');
@@ -175,18 +177,19 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
     final c = context.colors;
     final locale = ref.watch(localeProvider);
     final l10n = AppL10n(locale);
+    _l10n = l10n;
     final user = ref.watch(currentUserProvider);
     final appDataAsync = ref.watch(appDataProvider);
 
     return appDataAsync.when(
       loading: () => Scaffold(
         backgroundColor: c.bg,
-        appBar: AppBar(title: const Text('Loading...')),
+        appBar: AppBar(title: Text(l10n.loading)),
         body: Center(child: CircularProgressIndicator(color: c.primary)),
       ),
       error: (e, _) => Scaffold(
         backgroundColor: c.bg,
-        appBar: AppBar(title: const Text('Error')),
+        appBar: AppBar(title: Text(l10n.error)),
         body: Center(child: Text('$e', style: TextStyle(color: c.danger))),
       ),
       data: (data) {
@@ -194,7 +197,7 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
           (k) => k.id == widget.kuriId,
           orElse: () => KuriPlan(
             id: '',
-            name: 'Not found',
+            name: l10n.kuriNotFound,
             contributionAmount: 0,
             currency: 'INR',
             startDate: '',
@@ -208,9 +211,9 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
         if (kuri.id.isEmpty) {
           return Scaffold(
             backgroundColor: c.bg,
-            appBar: AppBar(title: const Text('Kuri')),
+            appBar: AppBar(title: Text(l10n.appName)),
             body: Center(
-                child: Text('Kuri not found', style: TextStyle(color: c.textMuted))),
+                child: Text(l10n.kuriNotFound, style: TextStyle(color: c.textMuted))),
           );
         }
 
@@ -230,7 +233,7 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
                   IconButton(
                     icon: Icon(Icons.delete_outline, color: c.danger),
                     onPressed: () => _deleteKuri(kuri),
-                    tooltip: 'Delete Kuri',
+                    tooltip: l10n.deleteKuri,
                   ),
               ],
             ),
@@ -240,7 +243,7 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         // Header card
-                        _KuriHeader(kuri: kuri, totalCollected: totalCollected),
+                        _KuriHeader(kuri: kuri, totalCollected: totalCollected, l10n: l10n),
                         // Totals panel
                         _TotalsPanel(
                           kuri: kuri,
@@ -248,6 +251,7 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
                           data: data,
                           isCreator: true,
                           currentUserId: user?.id ?? '',
+                          l10n: l10n,
                         ),
                         // Navigation tiles for creator
                         Padding(
@@ -291,7 +295,7 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
                 : Column(
                     children: [
                       // Header card
-                      _KuriHeader(kuri: kuri, totalCollected: totalCollected),
+                      _KuriHeader(kuri: kuri, totalCollected: totalCollected, l10n: l10n),
                       // Totals panel
                       _TotalsPanel(
                         kuri: kuri,
@@ -299,6 +303,7 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
                         data: data,
                         isCreator: false,
                         currentUserId: user?.id ?? '',
+                        l10n: l10n,
                       ),
                       // Member payment view
                       Expanded(
@@ -359,8 +364,9 @@ class _NavTile extends StatelessWidget {
 class _KuriHeader extends StatelessWidget {
   final KuriPlan kuri;
   final double totalCollected;
+  final AppL10n l10n;
 
-  const _KuriHeader({required this.kuri, required this.totalCollected});
+  const _KuriHeader({required this.kuri, required this.totalCollected, required this.l10n});
 
   @override
   Widget build(BuildContext context) {
@@ -383,14 +389,14 @@ class _KuriHeader extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      '${kuri.participantUserIds.length} participants',
+                      '${kuri.participantUserIds.length} ${kuri.participantUserIds.length != 1 ? l10n.participants : l10n.participant}',
                       style: TextStyle(color: c.textMuted, fontSize: 13),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Started ${formatDate(kuri.startDate)}',
+                  '${l10n.started} ${formatDate(kuri.startDate)}',
                   style: TextStyle(color: c.textDim, fontSize: 12),
                 ),
               ],
@@ -399,7 +405,7 @@ class _KuriHeader extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('Total Collected', style: TextStyle(color: c.textMuted, fontSize: 11)),
+              Text(l10n.totalCollected, style: TextStyle(color: c.textMuted, fontSize: 11)),
               Text(
                 '₹${totalCollected.toInt()}',
                 style: TextStyle(
@@ -421,6 +427,7 @@ class _TotalsPanel extends StatelessWidget {
   final AppData data;
   final bool isCreator;
   final String currentUserId;
+  final AppL10n l10n;
 
   const _TotalsPanel({
     required this.kuri,
@@ -428,6 +435,7 @@ class _TotalsPanel extends StatelessWidget {
     required this.data,
     required this.isCreator,
     required this.currentUserId,
+    required this.l10n,
   });
 
   @override
@@ -448,14 +456,14 @@ class _TotalsPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Payment Summary',
+            Text(l10n.paymentSummary,
                 style: TextStyle(
                     color: c.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             ...kuri.participantUserIds.map((uid) {
               final participant = data.users.firstWhere(
                 (u) => u.id == uid,
-                orElse: () => AppUser(id: uid, name: 'Unknown', email: ''),
+                orElse: () => AppUser(id: uid, name: l10n.unknown, email: ''),
               );
               final userPaid = approved
                   .where((p) => p.userId == uid)
@@ -479,7 +487,7 @@ class _TotalsPanel extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                    child: Text('Total Collected',
+                    child: Text(l10n.totalCollected,
                         style: TextStyle(color: c.text, fontWeight: FontWeight.w600))),
                 Text('₹${planTotal.toInt()}',
                     style: TextStyle(
@@ -506,7 +514,7 @@ class _TotalsPanel extends StatelessWidget {
             Expanded(
               child: Column(
                 children: [
-                  Text('Your Paid', style: TextStyle(color: c.textMuted, fontSize: 12)),
+                  Text(l10n.yourPaid, style: TextStyle(color: c.textMuted, fontSize: 12)),
                   const SizedBox(height: 4),
                   Text('₹${myPaid.toInt()}',
                       style: TextStyle(
@@ -518,7 +526,7 @@ class _TotalsPanel extends StatelessWidget {
             Expanded(
               child: Column(
                 children: [
-                  Text('Plan Total', style: TextStyle(color: c.textMuted, fontSize: 12)),
+                  Text(l10n.planTotal, style: TextStyle(color: c.textMuted, fontSize: 12)),
                   const SizedBox(height: 4),
                   Text('₹${planTotal.toInt()}',
                       style: TextStyle(
@@ -550,6 +558,7 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
   String? _reviewingPaymentId;
   final _rejectionNoteCtrl = TextEditingController();
   bool _reviewing = false;
+  AppL10n? _l10n;
 
   @override
   void dispose() {
@@ -572,7 +581,7 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
         _reviewingPaymentId = null;
         _rejectionNoteCtrl.clear();
       });
-      if (mounted) showSuccess(context, approved ? 'Payment approved!' : 'Payment rejected.');
+      if (mounted) showSuccess(context, approved ? _l10n!.confirmed : _l10n!.rejected);
     } catch (e) {
       if (mounted) showError(context, '$e');
     } finally {
@@ -583,8 +592,8 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final locale = ref.watch(localeProvider);
-    final l10n = AppL10n(locale);
+    final l10n = AppL10n(ref.watch(localeProvider));
+    _l10n = l10n;
     final appDataAsync = ref.watch(appDataProvider);
 
     return Scaffold(
@@ -598,10 +607,10 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
           final payments = data.payments.where((p) => p.kuriId == widget.kuri.id).toList();
 
           if (months.isEmpty) {
-            return const EmptyState(
+            return EmptyState(
               icon: Icons.receipt_long,
-              title: 'No months yet',
-              subtitle: 'Payments will appear here once the plan starts',
+              title: l10n.noMonthsYet,
+              subtitle: l10n.paymentsWhenStarts,
             );
           }
 
@@ -644,7 +653,7 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
                               ),
                             ),
                             Text(
-                              '$confirmed/$totalParticipants confirmed',
+                              '$confirmed/$totalParticipants ${l10n.confirmedLower}',
                               style: TextStyle(color: c.green, fontSize: 12),
                             ),
                             if (pending > 0) ...[
@@ -656,7 +665,7 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  '$pending pending',
+                                  '$pending ${l10n.pendingLower}',
                                   style: TextStyle(color: c.warn, fontSize: 11),
                                 ),
                               ),
@@ -676,7 +685,7 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
                       ...widget.kuri.participantUserIds.map((uid) {
                         final participant = data.users.firstWhere(
                           (u) => u.id == uid,
-                          orElse: () => AppUser(id: uid, name: 'Unknown', email: ''),
+                          orElse: () => AppUser(id: uid, name: l10n.unknown, email: ''),
                         );
                         final payment = monthPayments.firstWhere(
                           (p) => p.userId == uid,
@@ -769,8 +778,8 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
                                 TextField(
                                   controller: _rejectionNoteCtrl,
                                   style: TextStyle(color: c.text, fontSize: 13),
-                                  decoration: const InputDecoration(
-                                    labelText: 'Note (for rejection)',
+                                  decoration: InputDecoration(
+                                    labelText: l10n.noteForRejection,
                                     isDense: true,
                                   ),
                                 ),
@@ -813,7 +822,7 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
                                   Padding(
                                     padding: const EdgeInsets.only(top: 4),
                                     child: Text(
-                                      'Note: ${payment.notes}',
+                                      '${l10n.note} ${payment.notes}',
                                       style: TextStyle(color: c.textMuted, fontSize: 11),
                                     ),
                                   ),
@@ -836,13 +845,13 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
   Widget _paymentStatusBadge(AppColors c, String status) {
     switch (status) {
       case 'approved':
-        return StatusBadge(label: 'Confirmed', color: c.green);
+        return StatusBadge(label: _l10n!.confirmed, color: c.green);
       case 'submitted':
-        return StatusBadge(label: 'Pending review', color: c.warn);
+        return StatusBadge(label: _l10n!.pendingReview, color: c.warn);
       case 'rejected':
-        return StatusBadge(label: 'Rejected', color: c.danger);
+        return StatusBadge(label: _l10n!.rejected, color: c.danger);
       default:
-        return StatusBadge(label: 'Not submitted', color: c.textDim);
+        return StatusBadge(label: _l10n!.notSubmitted, color: c.textDim);
     }
   }
 
@@ -865,6 +874,7 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
   String? _qrBase64;
   String? _qrFileName;
   bool _saving = false;
+  AppL10n? _l10n;
 
   @override
   void initState() {
@@ -893,14 +903,14 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
         }
       }
     } catch (e) {
-      if (mounted) showError(context, 'Failed to pick image: $e');
+      if (mounted) showError(context, '${_l10n!.failedToPickImage} $e');
     }
   }
 
   Future<void> _save() async {
     final upiId = _upiCtrl.text.trim();
     if (upiId.isEmpty) {
-      showError(context, 'UPI ID is required.');
+      showError(context, _l10n!.upiIdRequired);
       return;
     }
     setState(() => _saving = true);
@@ -913,7 +923,7 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
       );
       final data = await dataService.getData();
       ref.read(appDataProvider.notifier).updateState(data);
-      if (mounted) showSuccess(context, 'Settings saved!');
+      if (mounted) showSuccess(context, _l10n!.settingsSaved);
     } catch (e) {
       if (mounted) showError(context, '$e');
     } finally {
@@ -924,8 +934,8 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final locale = ref.watch(localeProvider);
-    final l10n = AppL10n(locale);
+    final l10n = AppL10n(ref.watch(localeProvider));
+    _l10n = l10n;
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -935,18 +945,18 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SectionTitle('PAYMENT SETTINGS'),
+            SectionTitle(l10n.paymentSettings),
             TextField(
               controller: _upiCtrl,
               style: TextStyle(color: c.text),
               decoration: InputDecoration(
-                labelText: '${l10n.upiId} (optional)',
+                labelText: '${l10n.upiId} ${l10n.optional}',
                 hintText: 'name@upi',
               ),
             ),
             const SizedBox(height: 12),
             if (_qrBase64 != null && _qrBase64!.isNotEmpty) ...[
-              Text('Current QR Code:', style: TextStyle(color: c.textMuted, fontSize: 12)),
+              Text(l10n.currentQr, style: TextStyle(color: c.textMuted, fontSize: 12)),
               const SizedBox(height: 8),
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
@@ -963,8 +973,8 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
               icon: const Icon(Icons.qr_code),
               label: Text(_qrFileName ??
                   (_qrBase64 != null
-                      ? 'Change ${l10n.paymentQr} (optional)'
-                      : 'Upload ${l10n.paymentQr} (optional)')),
+                      ? '${l10n.change} ${l10n.paymentQr} ${l10n.optional}'
+                      : '${l10n.upload} ${l10n.paymentQr} ${l10n.optional}')),
             ),
             if (_qrBase64 != null) ...[
               const SizedBox(height: 8),
@@ -974,7 +984,7 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
                   _qrFileName = null;
                 }),
                 icon: Icon(Icons.delete_outline, color: c.danger),
-                label: Text('Remove QR Code', style: TextStyle(color: c.danger)),
+                label: Text(l10n.removeQr, style: TextStyle(color: c.danger)),
               ),
             ],
             const SizedBox(height: 20),
@@ -986,7 +996,7 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
                       width: 20,
                       child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
                     )
-                  : const Text('Save Settings'),
+                  : Text(l10n.saveSettings),
             ),
           ],
         ),
@@ -1031,6 +1041,7 @@ class _MemberPaymentViewState extends ConsumerState<_MemberPaymentView> {
   Widget build(BuildContext context) {
     final appDataAsync = ref.watch(appDataProvider);
     final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
     return appDataAsync.when(
       loading: () => Center(child: CircularProgressIndicator(color: c.primary)),
       error: (e, _) => Center(child: Text('$e')),
@@ -1073,7 +1084,7 @@ class _MemberPaymentViewState extends ConsumerState<_MemberPaymentView> {
           padding: const EdgeInsets.all(12),
           children: [
             // UPI Banner
-            if (kuri.upiId != null && kuri.upiId!.isNotEmpty) _UpiBanner(kuri: kuri),
+            if (kuri.upiId != null && kuri.upiId!.isNotEmpty) _UpiBanner(kuri: kuri, l10n: l10n),
             const SizedBox(height: 8),
             ...months.reversed.map((month) {
               final payment = myPayments.firstWhere(
@@ -1110,8 +1121,9 @@ class _MemberPaymentViewState extends ConsumerState<_MemberPaymentView> {
 
 class _UpiBanner extends StatelessWidget {
   final KuriPlan kuri;
+  final AppL10n l10n;
 
-  const _UpiBanner({required this.kuri});
+  const _UpiBanner({required this.kuri, required this.l10n});
 
   @override
   Widget build(BuildContext context) {
@@ -1126,7 +1138,7 @@ class _UpiBanner extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Pay To', style: TextStyle(color: c.textMuted, fontSize: 11)),
+          Text(l10n.payTo, style: TextStyle(color: c.textMuted, fontSize: 11)),
           Row(
             children: [
               Text(
@@ -1139,8 +1151,8 @@ class _UpiBanner extends StatelessWidget {
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: kuri.upiId!));
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('UPI ID copied!'), duration: Duration(seconds: 1)),
+                    SnackBar(
+                        content: Text(l10n.upiIdCopied), duration: const Duration(seconds: 1)),
                   );
                 },
                 padding: const EdgeInsets.all(4),
@@ -1160,14 +1172,14 @@ class _UpiBanner extends StatelessWidget {
                       if (await canLaunchUrl(uri)) {
                         await launchUrl(uri);
                       } else {
-                        if (context.mounted) showError(context, 'No UPI app found.');
+                        if (context.mounted) showError(context, l10n.noUpiApp);
                       }
                     } catch (e) {
                       if (context.mounted) showError(context, 'Could not open UPI app: $e');
                     }
                   },
                   icon: const Icon(Icons.payment, size: 16),
-                  label: const Text('Pay with UPI App'),
+                  label: Text(l10n.payWithUpi),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     textStyle: const TextStyle(fontSize: 13),
@@ -1203,12 +1215,12 @@ class _UpiBanner extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: ctx.colors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text('QR Code', style: TextStyle(color: ctx.colors.text)),
+        title: Text(l10n.qrCode, style: TextStyle(color: ctx.colors.text)),
         content: _buildQrImage(base64Data),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
+            child: Text(l10n.close),
           ),
         ],
       ),
@@ -1255,6 +1267,7 @@ class _MonthRowState extends ConsumerState<_MonthRow> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
     return Opacity(
       opacity: widget.isLocked ? 0.5 : 1.0,
       child: Container(
@@ -1298,14 +1311,14 @@ class _MonthRowState extends ConsumerState<_MonthRow> {
                     children: [
                       Icon(Icons.lock, color: c.textDim, size: 14),
                       const SizedBox(width: 4),
-                      Text('Locked', style: TextStyle(color: c.textDim, fontSize: 12)),
+                      Text(l10n.locked, style: TextStyle(color: c.textDim, fontSize: 12)),
                     ],
                   )
                 else if (widget.payment.id.isEmpty ||
                     widget.payment.status == 'rejected')
-                  ..._buildPayButton(context)
+                  ..._buildPayButton(context, l10n)
                 else
-                  _paymentStatusBadge(c, widget.payment.status),
+                  _paymentStatusBadge(c, widget.payment.status, l10n),
               ],
             ),
             // Receipt thumbnail — visible to the submitter
@@ -1327,7 +1340,7 @@ class _MonthRowState extends ConsumerState<_MonthRow> {
     );
   }
 
-  List<Widget> _buildPayButton(BuildContext context) {
+  List<Widget> _buildPayButton(BuildContext context, AppL10n l10n) {
     if (!widget.canPay) return [const SizedBox()];
     return [
       ElevatedButton(
@@ -1336,7 +1349,7 @@ class _MonthRowState extends ConsumerState<_MonthRow> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           textStyle: const TextStyle(fontSize: 12),
         ),
-        child: const Text('Pay'),
+        child: Text(l10n.pay),
       ),
     ];
   }
@@ -1352,16 +1365,16 @@ class _MonthRowState extends ConsumerState<_MonthRow> {
     );
   }
 
-  Widget _paymentStatusBadge(AppColors c, String status) {
+  Widget _paymentStatusBadge(AppColors c, String status, AppL10n l10n) {
     switch (status) {
       case 'approved':
-        return StatusBadge(label: 'Confirmed', color: c.green);
+        return StatusBadge(label: l10n.confirmed, color: c.green);
       case 'submitted':
-        return StatusBadge(label: 'Pending review', color: c.warn);
+        return StatusBadge(label: l10n.pendingReview, color: c.warn);
       case 'rejected':
-        return StatusBadge(label: 'Rejected', color: c.danger);
+        return StatusBadge(label: l10n.rejected, color: c.danger);
       default:
-        return StatusBadge(label: 'Not submitted', color: c.textDim);
+        return StatusBadge(label: l10n.notSubmitted, color: c.textDim);
     }
   }
 }
@@ -1388,6 +1401,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   String? _receiptBase64;
   String? _receiptFileName;
   bool _loading = false;
+  AppL10n? _l10n;
 
   @override
   void dispose() {
@@ -1409,14 +1423,14 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
         }
       }
     } catch (e) {
-      if (mounted) showError(context, 'Failed to pick file: $e');
+      if (mounted) showError(context, '${_l10n!.failedToPickFile} $e');
     }
   }
 
   Future<void> _submit() async {
     final txnId = _txnCtrl.text.trim();
     if (_receiptBase64 == null) {
-      showError(context, 'Receipt image is required.');
+      showError(context, _l10n!.receiptRequired);
       return;
     }
 
@@ -1435,7 +1449,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
       ref.read(appDataProvider.notifier).updateState(data);
       if (mounted) {
         Navigator.pop(context);
-        showSuccess(context, 'Payment submitted for review!');
+        showSuccess(context, _l10n!.paymentSubmitted);
       }
     } catch (e) {
       if (mounted) showError(context, '$e');
@@ -1447,6 +1461,8 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
+    _l10n = l10n;
     return Container(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -1456,7 +1472,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
           Row(
             children: [
               Text(
-                'Submit Payment — ${formatMonthKey(widget.month)}',
+                '${l10n.submitPayment} — ${formatMonthKey(widget.month)}',
                 style: TextStyle(
                     color: c.text, fontSize: 16, fontWeight: FontWeight.bold),
               ),
@@ -1477,7 +1493,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
             ),
             child: Row(
               children: [
-                Text('Amount:', style: TextStyle(color: c.textMuted, fontSize: 13)),
+                Text(l10n.amount, style: TextStyle(color: c.textMuted, fontSize: 13)),
                 const SizedBox(width: 8),
                 Text(
                   '₹${widget.kuri.contributionAmount.toInt()}',
@@ -1491,9 +1507,9 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
           TextField(
             controller: _txnCtrl,
             style: TextStyle(color: c.text),
-            decoration: const InputDecoration(
-              labelText: 'Transaction ID (optional)',
-              hintText: 'UPI transaction reference',
+            decoration: InputDecoration(
+              labelText: l10n.transactionId,
+              hintText: l10n.upiReference,
             ),
           ),
           const SizedBox(height: 12),
@@ -1504,7 +1520,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
             ),
             onPressed: _pickReceipt,
             icon: Icon(_receiptBase64 != null ? Icons.check_circle : Icons.upload_file),
-            label: Text(_receiptFileName ?? 'Upload Receipt *'),
+            label: Text(_receiptFileName ?? l10n.uploadReceipt),
           ),
           if (_receiptBase64 != null) ...[
             const SizedBox(height: 8),
@@ -1514,7 +1530,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    _receiptFileName ?? 'Receipt uploaded',
+                    _receiptFileName ?? l10n.receiptUploaded,
                     style: TextStyle(color: c.green, fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1540,7 +1556,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                     width: 20,
                     child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
                   )
-                : const Text('Submit Payment'),
+                : Text(l10n.submitPayment),
           ),
         ],
       ),

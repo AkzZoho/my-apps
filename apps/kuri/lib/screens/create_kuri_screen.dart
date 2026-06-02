@@ -26,6 +26,7 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
   String? _qrBase64;
   String? _qrFileName;
   bool _loading = false;
+  AppL10n? _l10n;
 
   @override
   void dispose() {
@@ -76,7 +77,7 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
         }
       }
     } catch (e) {
-      if (mounted) showError(context, 'Failed to pick image: $e');
+      if (mounted) showError(context, '${_l10n!.failedToPickImage} $e');
     }
   }
 
@@ -88,7 +89,7 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
       orElse: () => AppUser(id: '', name: '', email: ''),
     );
     if (user.id.isEmpty) {
-      showError(context, 'No user found with email: $email');
+      showError(context, '${_l10n!.noUserFound} $email');
       return;
     }
     if (!_selectedParticipants.any((p) => p.id == user.id)) {
@@ -106,17 +107,17 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
     final upiId = _upiCtrl.text.trim();
 
     if (name.isEmpty) {
-      showError(context, 'Name is required.');
+      showError(context, _l10n!.nameIsRequired);
       return;
     }
     if (amountStr.isEmpty) {
-      showError(context, 'Amount is required.');
+      showError(context, _l10n!.amountRequired);
       return;
     }
 
     final amount = double.tryParse(amountStr);
     if (amount == null || amount <= 0) {
-      showError(context, 'Enter a valid amount.');
+      showError(context, _l10n!.validAmount);
       return;
     }
 
@@ -139,10 +140,10 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
       ref.read(appDataProvider.notifier).updateState(data);
       if (mounted) {
         Navigator.pop(context);
-        showSuccess(context, 'Kuri created!');
+        showSuccess(context, _l10n!.kuriCreated);
       }
     } catch (e) {
-      if (mounted) showError(context, 'Error: $e');
+      if (mounted) showError(context, '${_l10n!.error}: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -151,8 +152,8 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final locale = ref.watch(localeProvider);
-    final l10n = AppL10n(locale);
+    final l10n = AppL10n(ref.watch(localeProvider));
+    _l10n = l10n;
     final appDataAsync = ref.watch(appDataProvider);
     final currentUser = ref.watch(currentUserProvider);
 
@@ -220,13 +221,13 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                   controller: _upiCtrl,
                   style: TextStyle(color: c.text),
                   decoration: InputDecoration(
-                    labelText: '${l10n.upiId} (optional)',
+                    labelText: '${l10n.upiId} ${l10n.optional}',
                     hintText: 'name@upi',
                   ),
                 ),
                 const SizedBox(height: 12),
                 // QR code upload
-                Text('${l10n.paymentQr} (optional)',
+                Text('${l10n.paymentQr} ${l10n.optional}',
                     style: TextStyle(color: c.textMuted, fontSize: 12)),
                 const SizedBox(height: 4),
                 Row(
@@ -239,7 +240,7 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                         ),
                         onPressed: _pickQrImage,
                         icon: Icon(_qrBase64 != null ? Icons.check_circle : Icons.qr_code),
-                        label: Text(_qrFileName ?? 'Upload QR Code'),
+                        label: Text(_qrFileName ?? l10n.uploadQrCode),
                       ),
                     ),
                     if (_qrBase64 != null) ...[
@@ -272,11 +273,11 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            '${currentUser.name} (you)',
+                            '${currentUser.name} ${l10n.you}',
                             style: TextStyle(color: c.text, fontSize: 13),
                           ),
                         ),
-                        StatusBadge(label: 'Creator', color: c.primary),
+                        StatusBadge(label: l10n.creator, color: c.primary),
                       ],
                     ),
                   ),
@@ -378,7 +379,7 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                 }(),
                 const SizedBox(height: 16),
                 // Required fields note
-                Text('* Required fields',
+                Text(l10n.requiredFields,
                     style: TextStyle(color: c.textDim, fontSize: 12)),
                 const SizedBox(height: 16),
                 ElevatedButton(

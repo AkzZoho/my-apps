@@ -58,7 +58,7 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
       ),
       error: (e, _) => Scaffold(
         backgroundColor: c.bg,
-        body: Center(child: Text('Error: $e', style: TextStyle(color: c.danger))),
+        body: Center(child: Text('${l10n.error}: $e', style: TextStyle(color: c.danger))),
       ),
       data: (data) {
         if (user == null) return Scaffold(backgroundColor: c.bg, body: const SizedBox());
@@ -83,14 +83,14 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
                   style: TextStyle(color: c.primary, fontWeight: FontWeight.bold),
                 ),
                 onPressed: () => ref.read(localeProvider.notifier).toggle(),
-                tooltip: 'Switch language',
+                tooltip: l10n.switchLanguage,
               ),
               IconButton(
                 icon: Icon(ref.watch(themeModeProvider) == ThemeMode.dark
                     ? Icons.light_mode_rounded
                     : Icons.dark_mode_rounded),
                 onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
-                tooltip: 'Toggle theme',
+                tooltip: l10n.toggleTheme,
               ),
               Stack(
                 alignment: Alignment.center,
@@ -123,7 +123,7 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
               IconButton(
                 icon: const Icon(Icons.logout),
                 onPressed: () => ref.read(currentUserProvider.notifier).logout(),
-                tooltip: 'Sign out',
+                tooltip: l10n.signOut,
               ),
             ],
           ),
@@ -131,10 +131,10 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
             children: [
               Expanded(
                 child: myKuris.isEmpty
-                    ? const EmptyState(
+                    ? EmptyState(
                   icon: Icons.currency_rupee,
-                  title: 'No Kuris yet',
-                  subtitle: 'Create your first savings plan',
+                  title: l10n.noKurisYet,
+                  subtitle: l10n.createFirstPlan,
                 )
               : RefreshIndicator(
                   onRefresh: () => ref.read(appDataProvider.notifier).refresh(),
@@ -174,7 +174,7 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
                                   ),
                                 ),
                                 if (isCreator)
-                                  StatusBadge(label: 'Creator', color: c.primary),
+                                  StatusBadge(label: l10n.creator, color: c.primary),
                               ],
                             ),
                             const SizedBox(height: 6),
@@ -184,7 +184,7 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${kuri.participantUserIds.length} participant${kuri.participantUserIds.length != 1 ? 's' : ''}',
+                              '${kuri.participantUserIds.length} ${kuri.participantUserIds.length != 1 ? l10n.participants : l10n.participant}',
                               style: TextStyle(color: c.textDim, fontSize: 12),
                             ),
                             const SizedBox(height: 6),
@@ -230,6 +230,7 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
         .where((n) => n.userId == user.id)
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final l10n = AppL10n(ref.read(localeProvider));
 
     showAppBottomSheet(
       context,
@@ -243,7 +244,7 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
             children: [
               Row(
                 children: [
-                  Text('Notifications',
+                  Text(l10n.notifications,
                       style: TextStyle(color: cc.text, fontSize: 18, fontWeight: FontWeight.bold)),
                   const Spacer(),
                   IconButton(
@@ -254,10 +255,10 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
               const SizedBox(height: 12),
               Expanded(
                 child: notifs.isEmpty
-                    ? const EmptyState(
+                    ? EmptyState(
                         icon: Icons.notifications_none,
-                        title: 'No notifications',
-                        subtitle: 'You are all caught up!',
+                        title: l10n.noNotifications,
+                        subtitle: l10n.allCaughtUp,
                       )
                     : ListView.builder(
                         itemCount: notifs.length,
