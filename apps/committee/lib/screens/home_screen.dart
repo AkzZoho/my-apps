@@ -623,34 +623,6 @@ class _CommitteeBody extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          InkWell(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CommitteeSettingsScreen(groupId: activeGroup.id),
-              ),
-            ).then((_) => ref.read(appDataProvider.notifier).refresh()),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: c.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: c.border),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.settings_outlined, color: c.primary, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text('Settings', style: TextStyle(color: c.text)),
-                  ),
-                  Icon(Icons.chevron_right, color: c.textMuted),
-                ],
-              ),
-            ),
-          ),
           const SizedBox(height: 16),
 
           // Pending invitations card at bottom

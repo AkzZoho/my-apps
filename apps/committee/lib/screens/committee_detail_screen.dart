@@ -2,11 +2,22 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../models.dart';
 import '../providers/providers.dart';
 import '../services/data_service.dart';
 import '../widgets/common.dart';
+
+// ─── WhatsApp share helper ────────────────────────────────────────────────────
+
+Future<void> _shareViaWhatsApp(BuildContext context, String groupName, String code) async {
+  final msg = 'Join my committee "$groupName" using invite code: $code';
+  final uri = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(msg)}');
+  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (context.mounted) showError(context, 'Could not open WhatsApp');
+  }
+}
 
 // ─── Committee Detail Screen (Members) ────────────────────────────────────────
 
@@ -49,7 +60,18 @@ class CommitteeDetailScreen extends ConsumerWidget {
         final isAdmin = user?.id == group.createdBy;
         return Scaffold(
           backgroundColor: c.bg,
-          appBar: AppBar(title: Text(group.name)),
+          appBar: AppBar(
+            title: Text(group.name),
+            actions: [
+              if (isAdmin)
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: 'Edit committee',
+                  onPressed: () =>
+                      showAppBottomSheet(context, _EditCommitteeSheet(group: group)),
+                ),
+            ],
+          ),
           body: _MembersBody(group: group, data: data, currentUser: user, isAdmin: isAdmin),
         );
       },
@@ -587,29 +609,71 @@ class _MembersBody extends ConsumerWidget {
             const SizedBox(height: 8),
             const SectionTitle('PENDING INVITATIONS'),
             ...pendingInvitations.map((inv) => AppCard(
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.mail_outline, color: c.textMuted, size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(inv.inviteeEmail,
+                      Row(
+                        children: [
+                          Icon(Icons.mail_outline, color: c.textMuted, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(inv.inviteeEmail,
                                 style: TextStyle(color: c.text, fontSize: 13)),
-                            Row(
-                              children: [
-                                Text(
-                                  'Code: ${inv.inviteCode}',
-                                  style: TextStyle(color: c.textMuted, fontSize: 12),
-                                ),
-                                CopyButton(inv.inviteCode),
-                              ],
-                            ),
-                          ],
-                        ),
+                          ),
+                          StatusBadge(label: 'Pending', color: c.warn),
+                        ],
                       ),
-                      StatusBadge(label: 'Pending', color: c.warn),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: c.primaryLight.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: c.primary.withOpacity(0.3)),
+                            ),
+                            child: Text(
+                              inv.inviteCode,
+                              style: TextStyle(
+                                color: c.primary,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 3,
+                              ),
+                            ),
+                          ),
+                          CopyButton(inv.inviteCode),
+                          const SizedBox(width: 4),
+                          InkWell(
+                            onTap: () =>
+                                _shareViaWhatsApp(context, group.name, inv.inviteCode),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF25D366).withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                    color: const Color(0xFF25D366).withOpacity(0.4)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.share, size: 14,
+                                      color: Color(0xFF25D366)),
+                                  SizedBox(width: 4),
+                                  Text('WhatsApp',
+                                      style: TextStyle(
+                                          color: Color(0xFF25D366),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 )),
@@ -806,23 +870,32 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
                 children: [
                   Text('Invitation created!',
                       style: TextStyle(color: c.green, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
-                      Text('Invite Code: ', style: TextStyle(color: c.textMuted, fontSize: 13)),
-                      Text(
-                        _newInvitation!.inviteCode,
-                        style: TextStyle(
-                          color: c.text,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          letterSpacing: 2,
+                      Container(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: c.primaryLight.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: c.primary.withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          _newInvitation!.inviteCode,
+                          style: TextStyle(
+                            color: c.primary,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 4,
+                          ),
                         ),
                       ),
                       IconButton(
                         icon: Icon(Icons.copy, size: 16, color: c.textMuted),
                         onPressed: () {
-                          Clipboard.setData(ClipboardData(text: _newInvitation!.inviteCode));
+                          Clipboard.setData(
+                              ClipboardData(text: _newInvitation!.inviteCode));
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                                 content: Text('Code copied!'),
@@ -834,9 +907,19 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
                       ),
                     ],
                   ),
-                  Text(
-                    'Share this code with the invitee.',
-                    style: TextStyle(color: c.textDim, fontSize: 11),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF25D366),
+                        side: const BorderSide(color: Color(0xFF25D366)),
+                      ),
+                      icon: const Icon(Icons.share, size: 16),
+                      label: const Text('Share via WhatsApp'),
+                      onPressed: () => _shareViaWhatsApp(
+                          context, widget.group.name, _newInvitation!.inviteCode),
+                    ),
                   ),
                 ],
               ),
