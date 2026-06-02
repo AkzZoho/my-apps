@@ -77,7 +77,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return Scaffold(
           backgroundColor: c.bg,
           appBar: AppBar(
-            title: Text(l10n.appName),
+            title: myGroups.isEmpty
+                ? Text(l10n.appName)
+                : GestureDetector(
+                    onTap: () => _showCommitteeSwitcher(context, myGroups, safeIdx, ref, user),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            myGroups[safeIdx].name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.keyboard_arrow_down, size: 20, color: c.textMuted),
+                      ],
+                    ),
+                  ),
             actions: [
               // Language toggle: EN / മ
               TextButton(
@@ -183,6 +200,94 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _showJoinSheet(BuildContext context, AppUser user) {
     showAppBottomSheet(context, _JoinCommitteeSheet(user: user));
+  }
+
+  void _showCommitteeSwitcher(BuildContext context, List<Group> groups, int activeIdx,
+      WidgetRef ref, AppUser user) {
+    showAppBottomSheet(
+      context,
+      Builder(builder: (ctx) {
+        final c = ctx.colors;
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Text('My Committees',
+                      style: TextStyle(color: c.text, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  IconButton(
+                    icon: Icon(Icons.close, color: c.textMuted),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ...groups.asMap().entries.map((e) {
+                final i = e.key;
+                final g = e.value;
+                final isActive = i == activeIdx;
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: isActive ? c.primary : c.surfaceHigh,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.account_balance,
+                        size: 20, color: isActive ? c.primaryFg : c.textMuted),
+                  ),
+                  title: Text(g.name,
+                      style: TextStyle(
+                          color: c.text,
+                          fontWeight: isActive ? FontWeight.w600 : FontWeight.normal)),
+                  subtitle: Text('${g.members.length} members',
+                      style: TextStyle(color: c.textMuted, fontSize: 12)),
+                  trailing: isActive ? Icon(Icons.check, color: c.primary) : null,
+                  onTap: () {
+                    ref.read(activeCommitteeIndexProvider.notifier).state = i;
+                    Navigator.pop(ctx);
+                  },
+                );
+              }),
+              const Divider(),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                          foregroundColor: c.primary, side: BorderSide(color: c.border)),
+                      icon: const Icon(Icons.link, size: 16),
+                      label: const Text('Join'),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        showAppBottomSheet(context, _JoinCommitteeSheet(user: user));
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Create'),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        showAppBottomSheet(context, _CreateCommitteeSheet(user: user));
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }),
+    );
   }
 
   void _showNotificationsSheet(BuildContext context, AppData data, AppUser user) {
@@ -397,46 +502,6 @@ class _CommitteeBody extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Group selector chips
-          if (myGroups.length > 1) ...[
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: myGroups.asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final g = entry.value;
-                  final isActive = i == activeIdx;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: GestureDetector(
-                      onTap: () =>
-                          ref.read(activeCommitteeIndexProvider.notifier).state = i,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: isActive ? c.primary : c.bg,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isActive ? c.primary : c.border,
-                          ),
-                        ),
-                        child: Text(
-                          g.name,
-                          style: TextStyle(
-                            color: isActive ? c.primaryFg : c.textMuted,
-                            fontSize: 13,
-                            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-
           // Active committee card
           Container(
             padding: const EdgeInsets.all(16),
@@ -517,16 +582,12 @@ class _CommitteeBody extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => CommitteeDetailScreen(groupId: activeGroup.id),
-                ),
-              ).then((_) {
-                // Mark as seen when returning from chat
-              });
-            },
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CommitteeChatScreen(groupId: activeGroup.id),
+              ),
+            ).then((_) => ref.read(appDataProvider.notifier).refresh()),
             borderRadius: BorderRadius.circular(12),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -557,6 +618,34 @@ class _CommitteeBody extends ConsumerWidget {
                     ),
                     const SizedBox(width: 4),
                   ],
+                  Icon(Icons.chevron_right, color: c.textMuted),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CommitteeSettingsScreen(groupId: activeGroup.id),
+              ),
+            ).then((_) => ref.read(appDataProvider.notifier).refresh()),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: c.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: c.border),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.settings_outlined, color: c.primary, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text('Settings', style: TextStyle(color: c.text)),
+                  ),
                   Icon(Icons.chevron_right, color: c.textMuted),
                 ],
               ),

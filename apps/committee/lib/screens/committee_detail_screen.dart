@@ -8,38 +8,130 @@ import '../providers/providers.dart';
 import '../services/data_service.dart';
 import '../widgets/common.dart';
 
-class CommitteeDetailScreen extends ConsumerStatefulWidget {
+// ─── Committee Detail Screen (Members) ────────────────────────────────────────
+
+class CommitteeDetailScreen extends ConsumerWidget {
   final String groupId;
 
   const CommitteeDetailScreen({super.key, required this.groupId});
 
   @override
-  ConsumerState<CommitteeDetailScreen> createState() => _CommitteeDetailScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final user = ref.watch(currentUserProvider);
+    final appDataAsync = ref.watch(appDataProvider);
+
+    return appDataAsync.when(
+      loading: () => Scaffold(
+        backgroundColor: c.bg,
+        appBar: AppBar(title: const Text('Members')),
+        body: Center(child: CircularProgressIndicator(color: c.primary)),
+      ),
+      error: (e, _) => Scaffold(
+        backgroundColor: c.bg,
+        appBar: AppBar(title: const Text('Error')),
+        body: Center(child: Text('$e', style: TextStyle(color: c.danger))),
+      ),
+      data: (data) {
+        final group = data.groups.firstWhere(
+          (g) => g.id == groupId,
+          orElse: () =>
+              Group(id: '', name: 'Not Found', createdBy: '', members: [], createdAt: ''),
+        );
+        if (group.id.isEmpty) {
+          return Scaffold(
+            backgroundColor: c.bg,
+            appBar: AppBar(title: const Text('Members')),
+            body:
+                Center(child: Text('Committee not found', style: TextStyle(color: c.textMuted))),
+          );
+        }
+        final isAdmin = user?.id == group.createdBy;
+        return Scaffold(
+          backgroundColor: c.bg,
+          appBar: AppBar(title: Text(group.name)),
+          body: _MembersBody(group: group, data: data, currentUser: user, isAdmin: isAdmin),
+        );
+      },
+    );
+  }
 }
 
-class _CommitteeDetailScreenState extends ConsumerState<CommitteeDetailScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  int _tabIndex = 0;
+// ─── Committee Chat Screen ─────────────────────────────────────────────────────
+
+class CommitteeChatScreen extends ConsumerStatefulWidget {
+  final String groupId;
+
+  const CommitteeChatScreen({super.key, required this.groupId});
+
+  @override
+  ConsumerState<CommitteeChatScreen> createState() => _CommitteeChatScreenState();
+}
+
+class _CommitteeChatScreenState extends ConsumerState<CommitteeChatScreen> {
+  final _controller = TextEditingController();
+  final _scrollController = ScrollController();
+  bool _sending = false;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      if (_tabController.indexIsChanging) return;
-      setState(() => _tabIndex = _tabController.index);
-      if (_tabController.index == 1) {
-        // Chat tab opened — mark seen
-        ref.read(lastSeenProvider.notifier).markSeen(widget.groupId);
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(lastSeenProvider.notifier).markSeen(widget.groupId);
+      _scrollToBottom();
+    });
+    _refreshTimer = Timer.periodic(const Duration(seconds: 4), (_) async {
+      try {
+        final data = await dataService.getData();
+        if (mounted) {
+          ref.read(appDataProvider.notifier).updateState(data);
+          _scrollToBottom();
+        }
+      } catch (_) {}
     });
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _refreshTimer?.cancel();
+    _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _send(String groupId) async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
+
+    setState(() => _sending = true);
+    _controller.clear();
+    try {
+      await dataService.sendGroupMessage(groupId, user.id, text);
+      final data = await dataService.getData();
+      if (mounted) {
+        ref.read(appDataProvider.notifier).updateState(data);
+        _scrollToBottom();
+      }
+    } catch (e) {
+      if (mounted) showError(context, 'Failed to send: $e');
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   @override
@@ -51,93 +143,58 @@ class _CommitteeDetailScreenState extends ConsumerState<CommitteeDetailScreen>
     return appDataAsync.when(
       loading: () => Scaffold(
         backgroundColor: c.bg,
-        appBar: AppBar(title: const Text('Committee')),
+        appBar: AppBar(title: const Text('Chat')),
         body: Center(child: CircularProgressIndicator(color: c.primary)),
       ),
       error: (e, _) => Scaffold(
         backgroundColor: c.bg,
-        appBar: AppBar(title: const Text('Error')),
+        appBar: AppBar(title: const Text('Chat')),
         body: Center(child: Text('$e', style: TextStyle(color: c.danger))),
       ),
       data: (data) {
         final group = data.groups.firstWhere(
           (g) => g.id == widget.groupId,
-          orElse: () => Group(id: '', name: 'Not Found', createdBy: '', members: [], createdAt: ''),
+          orElse: () =>
+              Group(id: '', name: 'Not Found', createdBy: '', members: [], createdAt: ''),
         );
-
         if (group.id.isEmpty) {
           return Scaffold(
             backgroundColor: c.bg,
-            appBar: AppBar(title: const Text('Committee')),
-            body: Center(child: Text('Committee not found', style: TextStyle(color: c.textMuted))),
+            appBar: AppBar(title: const Text('Chat')),
+            body:
+                Center(child: Text('Committee not found', style: TextStyle(color: c.textMuted))),
           );
         }
 
-        final isAdmin = user?.id == group.createdBy;
-
-        // Unread count for chat tab
-        final lastSeen = ref.watch(lastSeenProvider);
-        final ls = lastSeen[group.id];
-        final unread = data.chatMessages.where((m) {
-          if (m.groupId != group.id) return false;
-          if (ls == null) return true;
-          try {
-            return DateTime.parse(m.createdAt).isAfter(ls);
-          } catch (_) {
-            return false;
-          }
-        }).length;
+        final messages = data.chatMessages
+            .where((m) => m.groupId == widget.groupId)
+            .toList()
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
         return Scaffold(
           backgroundColor: c.bg,
-          appBar: AppBar(
-            title: Text(group.name),
-            actions: [
-              if (isAdmin)
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined),
-                  onPressed: () => _showEditSheet(context, group),
-                  tooltip: 'Edit Committee',
-                ),
-            ],
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: [
-                Tab(text: 'Members (${group.members.length})'),
-                Tab(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Chat'),
-                      if (unread > 0 && _tabIndex != 1) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: c.primary,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '$unread',
-                            style: TextStyle(
-                              color: c.primaryFg,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          body: TabBarView(
-            controller: _tabController,
+          appBar: AppBar(title: Text(group.name)),
+          body: Column(
             children: [
-              _MembersTab(group: group, data: data, currentUser: user, isAdmin: isAdmin),
-              _ChatTab(group: group),
+              Expanded(
+                child: messages.isEmpty
+                    ? const EmptyState(
+                        icon: Icons.chat_bubble_outline,
+                        title: 'No messages yet',
+                        subtitle: 'Be the first to say something!',
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        itemCount: messages.length,
+                        itemBuilder: (ctx, i) {
+                          final msg = messages[i];
+                          final isMe = user?.id == msg.senderUserId;
+                          return _ChatBubble(message: msg, isMe: isMe);
+                        },
+                      ),
+              ),
+              _buildInputBar(c),
             ],
           ),
         );
@@ -145,20 +202,280 @@ class _CommitteeDetailScreenState extends ConsumerState<CommitteeDetailScreen>
     );
   }
 
-  void _showEditSheet(BuildContext context, Group group) {
-    showAppBottomSheet(context, _EditCommitteeSheet(group: group));
+  Widget _buildInputBar(AppColors c) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      decoration: BoxDecoration(
+        color: c.surface,
+        border: Border(top: BorderSide(color: c.border)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              style: TextStyle(color: c.text),
+              decoration: const InputDecoration(
+                hintText: 'Type a message...',
+                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                isDense: true,
+              ),
+              onSubmitted: (_) => _send(widget.groupId),
+              textInputAction: TextInputAction.send,
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: _sending ? null : () => _send(widget.groupId),
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: c.primary, shape: BoxShape.circle),
+              child: _sending
+                  ? Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
+                    )
+                  : Icon(Icons.send, color: c.primaryFg, size: 18),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
-// ─── Members Tab ─────────────────────────────────────────────────────────────
+// ─── Committee Settings Screen ─────────────────────────────────────────────────
 
-class _MembersTab extends ConsumerWidget {
+class CommitteeSettingsScreen extends ConsumerWidget {
+  final String groupId;
+
+  const CommitteeSettingsScreen({super.key, required this.groupId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final user = ref.watch(currentUserProvider);
+    final appDataAsync = ref.watch(appDataProvider);
+
+    return appDataAsync.when(
+      loading: () => Scaffold(
+        backgroundColor: c.bg,
+        appBar: AppBar(title: const Text('Settings')),
+        body: Center(child: CircularProgressIndicator(color: c.primary)),
+      ),
+      error: (e, _) => Scaffold(
+        backgroundColor: c.bg,
+        appBar: AppBar(title: const Text('Settings')),
+        body: Center(child: Text('$e', style: TextStyle(color: c.danger))),
+      ),
+      data: (data) {
+        final group = data.groups.firstWhere(
+          (g) => g.id == groupId,
+          orElse: () =>
+              Group(id: '', name: 'Not Found', createdBy: '', members: [], createdAt: ''),
+        );
+        if (group.id.isEmpty) {
+          return Scaffold(
+            backgroundColor: c.bg,
+            appBar: AppBar(title: const Text('Settings')),
+            body: Center(
+                child: Text('Committee not found', style: TextStyle(color: c.textMuted))),
+          );
+        }
+
+        final isAdmin = user?.id == group.createdBy;
+        final pendingInvitations = data.invitations
+            .where((inv) => inv.groupId == group.id && inv.status == 'pending')
+            .toList();
+
+        return Scaffold(
+          backgroundColor: c.bg,
+          appBar: AppBar(title: Text(group.name)),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Committee info card
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: c.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: c.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(group.name,
+                          style: TextStyle(
+                              color: c.text, fontSize: 18, fontWeight: FontWeight.bold)),
+                      if (group.description != null && group.description!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(group.description!,
+                            style: TextStyle(color: c.textMuted, fontSize: 13)),
+                      ],
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.people_outline, size: 14, color: c.textDim),
+                          const SizedBox(width: 4),
+                          Text('${group.members.length} members',
+                              style: TextStyle(color: c.textDim, fontSize: 12)),
+                          const SizedBox(width: 16),
+                          Icon(Icons.calendar_today, size: 14, color: c.textDim),
+                          const SizedBox(width: 4),
+                          Text('Created ${formatDate(group.createdAt)}',
+                              style: TextStyle(color: c.textDim, fontSize: 12)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                if (isAdmin) ...[
+                  const SectionTitle('ADMIN'),
+                  const SizedBox(height: 8),
+                  _SettingsTile(
+                    icon: Icons.edit_outlined,
+                    label: 'Edit Committee',
+                    onTap: () => showAppBottomSheet(context, _EditCommitteeSheet(group: group)),
+                  ),
+                  const SizedBox(height: 8),
+                  _SettingsTile(
+                    icon: Icons.person_add_outlined,
+                    label: 'Invite Member',
+                    onTap: user != null
+                        ? () => showAppBottomSheet(
+                            context, _InviteMemberSheet(group: group, user: user))
+                        : null,
+                  ),
+                  if (pendingInvitations.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const SectionTitle('PENDING INVITATIONS'),
+                    const SizedBox(height: 8),
+                    ...pendingInvitations.map((inv) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: AppCard(
+                            child: Row(
+                              children: [
+                                Icon(Icons.mail_outline, color: c.textMuted, size: 20),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(inv.inviteeEmail,
+                                          style: TextStyle(color: c.text, fontSize: 13)),
+                                      Row(
+                                        children: [
+                                          Text('Code: ${inv.inviteCode}',
+                                              style:
+                                                  TextStyle(color: c.textMuted, fontSize: 12)),
+                                          CopyButton(inv.inviteCode),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                StatusBadge(label: 'Pending', color: c.warn),
+                              ],
+                            ),
+                          ),
+                        )),
+                  ],
+                ],
+
+                if (!isAdmin && user != null) ...[
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: c.danger,
+                      side: BorderSide(color: c.danger.withOpacity(0.5)),
+                    ),
+                    icon: const Icon(Icons.exit_to_app, size: 18),
+                    label: const Text('Leave Committee'),
+                    onPressed: () => _leaveCommittee(context, ref, group, user),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _leaveCommittee(
+      BuildContext context, WidgetRef ref, Group group, AppUser user) async {
+    final confirmed = await confirmDialog(
+      context,
+      title: 'Leave Committee',
+      message: 'Are you sure you want to leave "${group.name}"?',
+      confirmLabel: 'Leave',
+    );
+    if (!confirmed || !context.mounted) return;
+    try {
+      await dataService.removeMember(group.id, user.id, user.id);
+      final data = await dataService.getData();
+      ref.read(appDataProvider.notifier).updateState(data);
+      if (context.mounted) {
+        Navigator.pop(context);
+        showSuccess(context, 'You left ${group.name}');
+      }
+    } catch (e) {
+      if (context.mounted) showError(context, '$e');
+    }
+  }
+}
+
+// ─── Settings Tile ─────────────────────────────────────────────────────────────
+
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  const _SettingsTile({required this.icon, required this.label, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: c.border),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: c.primary, size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text(label, style: TextStyle(color: c.text))),
+            Icon(Icons.chevron_right, color: c.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Members Body ─────────────────────────────────────────────────────────────
+
+class _MembersBody extends ConsumerWidget {
   final Group group;
   final AppData data;
   final AppUser? currentUser;
   final bool isAdmin;
 
-  const _MembersTab({
+  const _MembersBody({
     required this.group,
     required this.data,
     required this.currentUser,
@@ -308,171 +625,7 @@ class _MembersTab extends ConsumerWidget {
   }
 }
 
-// ─── Chat Tab ─────────────────────────────────────────────────────────────────
-
-class _ChatTab extends ConsumerStatefulWidget {
-  final Group group;
-
-  const _ChatTab({required this.group});
-
-  @override
-  ConsumerState<_ChatTab> createState() => _ChatTabState();
-}
-
-class _ChatTabState extends ConsumerState<_ChatTab> {
-  final _controller = TextEditingController();
-  final _scrollController = ScrollController();
-  bool _sending = false;
-  Timer? _refreshTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(lastSeenProvider.notifier).markSeen(widget.group.id);
-      _scrollToBottom();
-    });
-    _refreshTimer = Timer.periodic(const Duration(seconds: 4), (_) async {
-      try {
-        final data = await dataService.getData();
-        if (mounted) {
-          ref.read(appDataProvider.notifier).updateState(data);
-          _scrollToBottom();
-        }
-      } catch (_) {}
-    });
-  }
-
-  @override
-  void dispose() {
-    _refreshTimer?.cancel();
-    _controller.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-
-  Future<void> _send() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    final user = ref.read(currentUserProvider);
-    if (user == null) return;
-
-    setState(() => _sending = true);
-    _controller.clear();
-    try {
-      await dataService.sendGroupMessage(widget.group.id, user.id, text);
-      final data = await dataService.getData();
-      if (mounted) {
-        ref.read(appDataProvider.notifier).updateState(data);
-        _scrollToBottom();
-      }
-    } catch (e) {
-      if (mounted) showError(context, 'Failed to send: $e');
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final user = ref.watch(currentUserProvider);
-    final appDataAsync = ref.watch(appDataProvider);
-
-    return appDataAsync.when(
-      loading: () => Center(child: CircularProgressIndicator(color: c.primary)),
-      error: (e, _) => Center(child: Text('Error: $e', style: TextStyle(color: c.danger))),
-      data: (data) {
-        final messages = data.chatMessages
-            .where((m) => m.groupId == widget.group.id)
-            .toList()
-          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-
-        return Column(
-          children: [
-            Expanded(
-              child: messages.isEmpty
-                  ? const EmptyState(
-                      icon: Icons.chat_bubble_outline,
-                      title: 'No messages yet',
-                      subtitle: 'Be the first to say something!',
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      itemCount: messages.length,
-                      itemBuilder: (ctx, i) {
-                        final msg = messages[i];
-                        final isMe = user?.id == msg.senderUserId;
-                        return _ChatBubble(message: msg, isMe: isMe);
-                      },
-                    ),
-            ),
-            _buildInputBar(c),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildInputBar(AppColors c) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border(top: BorderSide(color: c.border)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _controller,
-              style: TextStyle(color: c.text),
-              decoration: const InputDecoration(
-                hintText: 'Type a message...',
-                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                isDense: true,
-              ),
-              onSubmitted: (_) => _send(),
-              textInputAction: TextInputAction.send,
-            ),
-          ),
-          const SizedBox(width: 8),
-          InkWell(
-            onTap: _sending ? null : _send,
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: c.primary,
-                shape: BoxShape.circle,
-              ),
-              child: _sending
-                  ? Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
-                    )
-                  : Icon(Icons.send, color: c.primaryFg, size: 18),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// ─── Chat Bubble ──────────────────────────────────────────────────────────────
 
 class _ChatBubble extends StatelessWidget {
   final ChatMessage message;
@@ -506,26 +659,24 @@ class _ChatBubble extends StatelessWidget {
                     ),
                   ),
                 Container(
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.65,
-                  ),
+                  constraints:
+                      BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.65),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: isMe ? c.primaryLight : c.surface,
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(14),
                       topRight: const Radius.circular(14),
-                      bottomLeft: isMe ? const Radius.circular(14) : const Radius.circular(4),
-                      bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(14),
+                      bottomLeft:
+                          isMe ? const Radius.circular(14) : const Radius.circular(4),
+                      bottomRight:
+                          isMe ? const Radius.circular(4) : const Radius.circular(14),
                     ),
                     border: isMe ? null : Border.all(color: c.border),
                   ),
                   child: Text(
                     message.text,
-                    style: TextStyle(
-                      color: isMe ? Colors.white : c.text,
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: isMe ? Colors.white : c.text, fontSize: 14),
                   ),
                 ),
                 Padding(
