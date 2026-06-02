@@ -5,26 +5,10 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 
-// ─── Configuration ────────────────────────────────────────────────────────────
-// Set these before deploying to production.
-//
-// ZeptoMail:
-//   1. Create an account at https://zeptomail.zoho.com
-//   2. Add and verify a sending domain
-//   3. Generate an API token under Settings → API Tokens
-//   4. Replace the values below
-//
-// Google Sign-In:
-//   1. Go to https://console.cloud.google.com → APIs & Services → Credentials
-//   2. Create an OAuth 2.0 Client ID (Web application)
-//   3. Add your GitHub Pages URL to Authorized JavaScript origins
-//      e.g. https://yourusername.github.io
-//   4. Replace _kGoogleClientId below
-//
-const _kZeptoApiKey = 'PHtE6r0JEenoijYr8xZR7PbsF8KjY4Iv+u5iLQRAuI5GA/MKGk0Drt19w2S3qBYiXPlFFvXPnNk+t7icte7ULGnlZzseD2qyqK3sx/VYSPOZsbq6x00ct1gSdkzZVo/td95u0iHUuN7cNA==';
-const _kZeptoSender = 'noreply@akzapps.in'; // verified sender in ZeptoMail
+const _kZeptoProxyUrl = 'https://zepto-proxy.akshay-zoho-06.workers.dev/';
+const _kZeptoProxySecret = 'akzapps-otp-cf-2026';
+const _kZeptoSender = 'noreply@akzapps.in';
 const _kGoogleClientId = '143794639055-68ud64nik3bg818fei6ug29qa16lm9b8.apps.googleusercontent.com';
-// ─────────────────────────────────────────────────────────────────────────────
 
 class AuthService {
   AuthService._();
@@ -125,11 +109,11 @@ class AuthService {
     required String html,
   }) async {
     final resp = await http.post(
-      Uri.parse('https://api.zeptomail.in/v1.1/email'),
+      Uri.parse(_kZeptoProxyUrl),
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'Authorization': 'Zoho-enczapikey $_kZeptoApiKey',
+        'X-Secret': _kZeptoProxySecret,
       },
       body: jsonEncode({
         'from': {'address': _kZeptoSender},
@@ -142,8 +126,7 @@ class AuthService {
     );
     if (resp.statusCode >= 300) {
       throw Exception(
-          'Could not send verification email (HTTP ${resp.statusCode}). '
-          'Check your ZeptoMail API key and sender domain.');
+          'Could not send verification email (HTTP ${resp.statusCode}).');
     }
   }
 
