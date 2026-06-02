@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../providers/providers.dart';
 import '../widgets/common.dart';
@@ -36,27 +37,30 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final locale = ref.watch(localeProvider);
+    final l10n = AppL10n(locale);
     final user = ref.watch(currentUserProvider);
     final appDataAsync = ref.watch(appDataProvider);
 
     if (!_initialized) {
-      return const Scaffold(
-        backgroundColor: bgColor,
-        body: Center(child: CircularProgressIndicator(color: primaryColor)),
+      return Scaffold(
+        backgroundColor: c.bg,
+        body: Center(child: CircularProgressIndicator(color: c.primary)),
       );
     }
 
     return appDataAsync.when(
-      loading: () => const Scaffold(
-        backgroundColor: bgColor,
-        body: Center(child: CircularProgressIndicator(color: primaryColor)),
+      loading: () => Scaffold(
+        backgroundColor: c.bg,
+        body: Center(child: CircularProgressIndicator(color: c.primary)),
       ),
       error: (e, _) => Scaffold(
-        backgroundColor: bgColor,
-        body: Center(child: Text('Error: $e', style: const TextStyle(color: dangerColor))),
+        backgroundColor: c.bg,
+        body: Center(child: Text('Error: $e', style: TextStyle(color: c.danger))),
       ),
       data: (data) {
-        if (user == null) return const Scaffold(backgroundColor: bgColor, body: SizedBox());
+        if (user == null) return Scaffold(backgroundColor: c.bg, body: const SizedBox());
 
         final myKuris = data.kuris
             .where((k) => k.participantUserIds.contains(user.id) || k.createdBy == user.id)
@@ -67,10 +71,19 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
         final unreadNotifs = data.notifications.where((n) => n.userId == user.id && !n.read).length;
 
         return Scaffold(
-          backgroundColor: bgColor,
+          backgroundColor: c.bg,
           appBar: AppBar(
-            title: const Text('Kuri'),
+            title: Text(l10n.appName),
             actions: [
+              // Language toggle
+              IconButton(
+                icon: Text(
+                  locale == AppLocale.malayalam ? 'EN' : 'മ',
+                  style: TextStyle(color: c.primary, fontWeight: FontWeight.bold),
+                ),
+                onPressed: () => ref.read(localeProvider.notifier).toggle(),
+                tooltip: 'Switch language',
+              ),
               IconButton(
                 icon: Icon(ref.watch(themeModeProvider) == ThemeMode.dark
                     ? Icons.light_mode_rounded
@@ -91,8 +104,8 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
                       right: 8,
                       child: Container(
                         padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          color: dangerColor,
+                        decoration: BoxDecoration(
+                          color: c.danger,
                           shape: BoxShape.circle,
                         ),
                         constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
@@ -149,40 +162,40 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
                                 Expanded(
                                   child: Text(
                                     kuri.name,
-                                    style: const TextStyle(
-                                      color: textColor,
+                                    style: TextStyle(
+                                      color: c.text,
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ),
                                 if (isCreator)
-                                  const StatusBadge(label: 'Creator', color: primaryColor),
+                                  StatusBadge(label: 'Creator', color: c.primary),
                               ],
                             ),
                             const SizedBox(height: 6),
                             Text(
                               '₹${kuri.contributionAmount.toInt()}/mo · Started ${formatDate(kuri.startDate)}',
-                              style: const TextStyle(color: textMuted, fontSize: 13),
+                              style: TextStyle(color: c.textMuted, fontSize: 13),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               '${kuri.participantUserIds.length} participant${kuri.participantUserIds.length != 1 ? 's' : ''}',
-                              style: const TextStyle(color: textDim, fontSize: 12),
+                              style: TextStyle(color: c.textDim, fontSize: 12),
                             ),
                             const SizedBox(height: 6),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Total collected: ₹${totalCollected.toInt()}',
-                                  style: const TextStyle(
-                                      color: greenColor, fontSize: 13, fontWeight: FontWeight.w500),
+                                  '${l10n.totalCollected}: ₹${totalCollected.toInt()}',
+                                  style: TextStyle(
+                                      color: c.green, fontSize: 13, fontWeight: FontWeight.w500),
                                 ),
                                 if (missingUpi)
-                                  const Text(
+                                  Text(
                                     '⚠ UPI not set',
-                                    style: TextStyle(color: warnColor, fontSize: 12),
+                                    style: TextStyle(color: c.warn, fontSize: 12),
                                   ),
                               ],
                             ),
@@ -212,65 +225,67 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
 
     showAppBottomSheet(
       context,
-      Container(
-        padding: const EdgeInsets.all(20),
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Text('Notifications',
-                    style:
-                        TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
-                const Spacer(),
-                IconButton(
-                    icon: const Icon(Icons.close, color: textMuted),
-                    onPressed: () => Navigator.pop(context)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: notifs.isEmpty
-                  ? const EmptyState(
-                      icon: Icons.notifications_none,
-                      title: 'No notifications',
-                      subtitle: 'You are all caught up!',
-                    )
-                  : ListView.builder(
-                      itemCount: notifs.length,
-                      itemBuilder: (ctx, i) {
-                        final n = notifs[i];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: n.read ? bgColor : primaryLight.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                                color:
-                                    n.read ? borderColor : primaryColor.withOpacity(0.3)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(n.title,
-                                  style: TextStyle(
-                                      color: n.read ? textMuted : textColor,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13)),
-                              const SizedBox(height: 4),
-                              Text(n.message,
-                                  style: const TextStyle(color: textMuted, fontSize: 12)),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
+      Builder(builder: (ctx) {
+        final cc = ctx.colors;
+        return Container(
+          padding: const EdgeInsets.all(20),
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Text('Notifications',
+                      style: TextStyle(color: cc.text, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  IconButton(
+                      icon: Icon(Icons.close, color: cc.textMuted),
+                      onPressed: () => Navigator.pop(ctx)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: notifs.isEmpty
+                    ? const EmptyState(
+                        icon: Icons.notifications_none,
+                        title: 'No notifications',
+                        subtitle: 'You are all caught up!',
+                      )
+                    : ListView.builder(
+                        itemCount: notifs.length,
+                        itemBuilder: (listCtx, i) {
+                          final n = notifs[i];
+                          final lc = listCtx.colors;
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: n.read ? lc.bg : lc.primaryLight.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: n.read ? lc.border : lc.primary.withOpacity(0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(n.title,
+                                    style: TextStyle(
+                                        color: n.read ? lc.textMuted : lc.text,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13)),
+                                const SizedBox(height: 4),
+                                Text(n.message,
+                                    style: TextStyle(color: lc.textMuted, fontSize: 12)),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      }),
     );
   }
 }

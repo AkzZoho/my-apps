@@ -25,6 +25,7 @@ class _KuriAppState extends ConsumerState<KuriApp> {
     super.initState();
     Future.microtask(() async {
       await ref.read(themeModeProvider.notifier).load();
+      await ref.read(localeProvider.notifier).load();
       await ref.read(appDataProvider.notifier).load();
       final data = ref.read(appDataProvider).valueOrNull;
       if (data != null) await ref.read(currentUserProvider.notifier).loadFromPrefs(data);

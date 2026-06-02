@@ -44,19 +44,20 @@ class _CommitteeDetailScreenState extends ConsumerState<CommitteeDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final user = ref.watch(currentUserProvider);
     final appDataAsync = ref.watch(appDataProvider);
 
     return appDataAsync.when(
       loading: () => Scaffold(
-        backgroundColor: bgColor,
+        backgroundColor: c.bg,
         appBar: AppBar(title: const Text('Committee')),
-        body: const Center(child: CircularProgressIndicator(color: primaryColor)),
+        body: Center(child: CircularProgressIndicator(color: c.primary)),
       ),
       error: (e, _) => Scaffold(
-        backgroundColor: bgColor,
+        backgroundColor: c.bg,
         appBar: AppBar(title: const Text('Error')),
-        body: Center(child: Text('$e', style: const TextStyle(color: dangerColor))),
+        body: Center(child: Text('$e', style: TextStyle(color: c.danger))),
       ),
       data: (data) {
         final group = data.groups.firstWhere(
@@ -66,9 +67,9 @@ class _CommitteeDetailScreenState extends ConsumerState<CommitteeDetailScreen>
 
         if (group.id.isEmpty) {
           return Scaffold(
-            backgroundColor: bgColor,
+            backgroundColor: c.bg,
             appBar: AppBar(title: const Text('Committee')),
-            body: const Center(child: Text('Committee not found', style: TextStyle(color: textMuted))),
+            body: Center(child: Text('Committee not found', style: TextStyle(color: c.textMuted))),
           );
         }
 
@@ -88,7 +89,7 @@ class _CommitteeDetailScreenState extends ConsumerState<CommitteeDetailScreen>
         }).length;
 
         return Scaffold(
-          backgroundColor: bgColor,
+          backgroundColor: c.bg,
           appBar: AppBar(
             title: Text(group.name),
             actions: [
@@ -113,13 +114,13 @@ class _CommitteeDetailScreenState extends ConsumerState<CommitteeDetailScreen>
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
-                            color: primaryColor,
+                            color: c.primary,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             '$unread',
-                            style: const TextStyle(
-                              color: primaryFg,
+                            style: TextStyle(
+                              color: c.primaryFg,
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
@@ -166,6 +167,7 @@ class _MembersTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
     final pendingInvitations = data.invitations
         .where((inv) => inv.groupId == group.id && inv.status == 'pending')
         .toList();
@@ -206,25 +208,25 @@ class _MembersTab extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(memberUser.name,
-                            style: const TextStyle(color: textColor, fontWeight: FontWeight.w500)),
+                            style: TextStyle(color: c.text, fontWeight: FontWeight.w500)),
                         Text(memberUser.email,
-                            style: const TextStyle(color: textMuted, fontSize: 12)),
+                            style: TextStyle(color: c.textMuted, fontSize: 12)),
                       ],
                     ),
                   ),
                   StatusBadge(
                     label: member.role == 'admin' ? 'Admin' : 'Member',
-                    color: member.role == 'admin' ? primaryColor : textMuted,
+                    color: member.role == 'admin' ? c.primary : c.textMuted,
                   ),
                   if (canRemove) ...[
                     const SizedBox(width: 4),
                     PopupMenuButton<String>(
-                      color: surfaceColor,
+                      color: c.surface,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
-                        side: const BorderSide(color: borderColor),
+                        side: BorderSide(color: c.border),
                       ),
-                      icon: const Icon(Icons.more_vert, color: textMuted, size: 18),
+                      icon: Icon(Icons.more_vert, color: c.textMuted, size: 18),
                       onSelected: (val) async {
                         if (val == 'remove') {
                           final confirmed = await confirmDialog(
@@ -247,13 +249,13 @@ class _MembersTab extends ConsumerWidget {
                         }
                       },
                       itemBuilder: (_) => [
-                        const PopupMenuItem<String>(
+                        PopupMenuItem<String>(
                           value: 'remove',
                           child: Row(
                             children: [
-                              Icon(Icons.person_remove, color: dangerColor, size: 16),
-                              SizedBox(width: 8),
-                              Text('Remove Member', style: TextStyle(color: dangerColor)),
+                              Icon(Icons.person_remove, color: c.danger, size: 16),
+                              const SizedBox(width: 8),
+                              Text('Remove Member', style: TextStyle(color: c.danger)),
                             ],
                           ),
                         ),
@@ -270,19 +272,19 @@ class _MembersTab extends ConsumerWidget {
             ...pendingInvitations.map((inv) => AppCard(
                   child: Row(
                     children: [
-                      const Icon(Icons.mail_outline, color: textMuted, size: 20),
+                      Icon(Icons.mail_outline, color: c.textMuted, size: 20),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(inv.inviteeEmail,
-                                style: const TextStyle(color: textColor, fontSize: 13)),
+                                style: TextStyle(color: c.text, fontSize: 13)),
                             Row(
                               children: [
                                 Text(
                                   'Code: ${inv.inviteCode}',
-                                  style: const TextStyle(color: textMuted, fontSize: 12),
+                                  style: TextStyle(color: c.textMuted, fontSize: 12),
                                 ),
                                 CopyButton(inv.inviteCode),
                               ],
@@ -290,7 +292,7 @@ class _MembersTab extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      const StatusBadge(label: 'Pending', color: warnColor),
+                      StatusBadge(label: 'Pending', color: c.warn),
                     ],
                   ),
                 )),
@@ -385,12 +387,13 @@ class _ChatTabState extends ConsumerState<_ChatTab> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final user = ref.watch(currentUserProvider);
     final appDataAsync = ref.watch(appDataProvider);
 
     return appDataAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator(color: primaryColor)),
-      error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: dangerColor))),
+      loading: () => Center(child: CircularProgressIndicator(color: c.primary)),
+      error: (e, _) => Center(child: Text('Error: $e', style: TextStyle(color: c.danger))),
       data: (data) {
         final messages = data.chatMessages
             .where((m) => m.groupId == widget.group.id)
@@ -417,26 +420,26 @@ class _ChatTabState extends ConsumerState<_ChatTab> {
                       },
                     ),
             ),
-            _buildInputBar(),
+            _buildInputBar(c),
           ],
         );
       },
     );
   }
 
-  Widget _buildInputBar() {
+  Widget _buildInputBar(AppColors c) {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-      decoration: const BoxDecoration(
-        color: surfaceColor,
-        border: Border(top: BorderSide(color: borderColor)),
+      decoration: BoxDecoration(
+        color: c.surface,
+        border: Border(top: BorderSide(color: c.border)),
       ),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _controller,
-              style: const TextStyle(color: textColor),
+              style: TextStyle(color: c.text),
               decoration: const InputDecoration(
                 hintText: 'Type a message...',
                 contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -453,16 +456,16 @@ class _ChatTabState extends ConsumerState<_ChatTab> {
             child: Container(
               width: 40,
               height: 40,
-              decoration: const BoxDecoration(
-                color: primaryColor,
+              decoration: BoxDecoration(
+                color: c.primary,
                 shape: BoxShape.circle,
               ),
               child: _sending
-                  ? const Padding(
-                      padding: EdgeInsets.all(10),
-                      child: CircularProgressIndicator(color: primaryFg, strokeWidth: 2),
+                  ? Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
                     )
-                  : const Icon(Icons.send, color: primaryFg, size: 18),
+                  : Icon(Icons.send, color: c.primaryFg, size: 18),
             ),
           ),
         ],
@@ -479,6 +482,7 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -498,7 +502,7 @@ class _ChatBubble extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 2, left: 4),
                     child: Text(
                       message.senderName,
-                      style: const TextStyle(color: textMuted, fontSize: 11),
+                      style: TextStyle(color: c.textMuted, fontSize: 11),
                     ),
                   ),
                 Container(
@@ -507,19 +511,19 @@ class _ChatBubble extends StatelessWidget {
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isMe ? primaryLight : surfaceColor,
+                    color: isMe ? c.primaryLight : c.surface,
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(14),
                       topRight: const Radius.circular(14),
                       bottomLeft: isMe ? const Radius.circular(14) : const Radius.circular(4),
                       bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(14),
                     ),
-                    border: isMe ? null : Border.all(color: borderColor),
+                    border: isMe ? null : Border.all(color: c.border),
                   ),
                   child: Text(
                     message.text,
                     style: TextStyle(
-                      color: isMe ? Colors.white : textColor,
+                      color: isMe ? Colors.white : c.text,
                       fontSize: 14,
                     ),
                   ),
@@ -528,7 +532,7 @@ class _ChatBubble extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
                   child: Text(
                     _formatTime(message.createdAt),
-                    style: const TextStyle(color: textDim, fontSize: 10),
+                    style: TextStyle(color: c.textDim, fontSize: 10),
                   ),
                 ),
               ],
@@ -598,6 +602,7 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -606,11 +611,11 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
         children: [
           Row(
             children: [
-              const Text('Invite Member',
-                  style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Invite Member',
+                  style: TextStyle(color: c.text, fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
               IconButton(
-                  icon: const Icon(Icons.close, color: textMuted),
+                  icon: Icon(Icons.close, color: c.textMuted),
                   onPressed: () => Navigator.pop(context)),
             ],
           ),
@@ -618,7 +623,7 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
           TextField(
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
-            style: const TextStyle(color: textColor),
+            style: TextStyle(color: c.text),
             decoration: const InputDecoration(
               labelText: 'Member Email',
               hintText: 'user@example.com',
@@ -629,10 +634,10 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
           ElevatedButton(
             onPressed: _loading ? null : _submit,
             child: _loading
-                ? const SizedBox(
+                ? SizedBox(
                     height: 20,
                     width: 20,
-                    child: CircularProgressIndicator(color: primaryFg, strokeWidth: 2),
+                    child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
                   )
                 : const Text('Send Invite'),
           ),
@@ -641,31 +646,30 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: greenColor.withOpacity(0.1),
+                color: c.green.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: greenColor.withOpacity(0.3)),
+                border: Border.all(color: c.green.withOpacity(0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Invitation created!',
-                      style: TextStyle(color: greenColor, fontWeight: FontWeight.w600)),
+                  Text('Invitation created!',
+                      style: TextStyle(color: c.green, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Text('Invite Code: ',
-                          style: TextStyle(color: textMuted, fontSize: 13)),
+                      Text('Invite Code: ', style: TextStyle(color: c.textMuted, fontSize: 13)),
                       Text(
                         _newInvitation!.inviteCode,
-                        style: const TextStyle(
-                          color: textColor,
+                        style: TextStyle(
+                          color: c.text,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                           letterSpacing: 2,
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.copy, size: 16, color: textMuted),
+                        icon: Icon(Icons.copy, size: 16, color: c.textMuted),
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: _newInvitation!.inviteCode));
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -679,9 +683,9 @@ class _InviteMemberSheetState extends ConsumerState<_InviteMemberSheet> {
                       ),
                     ],
                   ),
-                  const Text(
+                  Text(
                     'Share this code with the invitee.',
-                    style: TextStyle(color: textDim, fontSize: 11),
+                    style: TextStyle(color: c.textDim, fontSize: 11),
                   ),
                 ],
               ),
@@ -756,6 +760,7 @@ class _EditCommitteeSheetState extends ConsumerState<_EditCommitteeSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -764,24 +769,24 @@ class _EditCommitteeSheetState extends ConsumerState<_EditCommitteeSheet> {
         children: [
           Row(
             children: [
-              const Text('Edit Committee',
-                  style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Edit Committee',
+                  style: TextStyle(color: c.text, fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
               IconButton(
-                  icon: const Icon(Icons.close, color: textMuted),
+                  icon: Icon(Icons.close, color: c.textMuted),
                   onPressed: () => Navigator.pop(context)),
             ],
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _nameCtrl,
-            style: const TextStyle(color: textColor),
+            style: TextStyle(color: c.text),
             decoration: const InputDecoration(labelText: 'Committee Name *'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _descCtrl,
-            style: const TextStyle(color: textColor),
+            style: TextStyle(color: c.text),
             decoration: const InputDecoration(labelText: 'Description (optional)'),
             maxLines: 2,
           ),
@@ -789,10 +794,10 @@ class _EditCommitteeSheetState extends ConsumerState<_EditCommitteeSheet> {
           ElevatedButton(
             onPressed: _loading ? null : _save,
             child: _loading
-                ? const SizedBox(
+                ? SizedBox(
                     height: 20,
                     width: 20,
-                    child: CircularProgressIndicator(color: primaryFg, strokeWidth: 2),
+                    child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
                   )
                 : const Text('Save Changes'),
           ),

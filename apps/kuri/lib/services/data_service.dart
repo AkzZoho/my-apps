@@ -258,12 +258,11 @@ class DataService {
     required String currency,
     required String startDate,
     required List<String> participantIds,
-    required String upiId,
+    String upiId = '',
     String? qrBase64,
     required String createdBy,
   }) async {
     final data = await getData();
-    if (upiId.trim().isEmpty) throw Exception('UPI ID is required.');
 
     final uniqueParticipants = participantIds.toSet().toList();
     if (!uniqueParticipants.contains(createdBy)) {

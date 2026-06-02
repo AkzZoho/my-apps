@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../providers/providers.dart';
 import '../services/data_service.dart';
@@ -35,7 +36,8 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
     super.dispose();
   }
 
-  Future<void> _pickDate() async {
+  Future<void> _pickDate(BuildContext context) async {
+    final c = context.colors;
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
@@ -44,12 +46,12 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
       lastDate: DateTime(now.year + 5),
       builder: (ctx, child) => Theme(
         data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: primaryColor,
-            onPrimary: primaryFg,
-            surface: surfaceColor,
+          colorScheme: ColorScheme.dark(
+            primary: c.primary,
+            onPrimary: c.primaryFg,
+            surface: c.surface,
           ),
-          dialogBackgroundColor: surfaceColor,
+          dialogBackgroundColor: c.surface,
         ),
         child: child!,
       ),
@@ -111,10 +113,6 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
       showError(context, 'Amount is required.');
       return;
     }
-    if (upiId.isEmpty) {
-      showError(context, 'UPI ID is required.');
-      return;
-    }
 
     final amount = double.tryParse(amountStr);
     if (amount == null || amount <= 0) {
@@ -152,15 +150,18 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final locale = ref.watch(localeProvider);
+    final l10n = AppL10n(locale);
     final appDataAsync = ref.watch(appDataProvider);
     final currentUser = ref.watch(currentUserProvider);
 
     return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(title: const Text('Create Kuri')),
+      backgroundColor: c.bg,
+      appBar: AppBar(title: Text(l10n.createKuri)),
       body: appDataAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: primaryColor)),
-        error: (e, _) => Center(child: Text('$e', style: const TextStyle(color: dangerColor))),
+        loading: () => Center(child: CircularProgressIndicator(color: c.primary)),
+        error: (e, _) => Center(child: Text('$e', style: TextStyle(color: c.danger))),
         data: (data) => LoadingOverlay(
           loading: _loading,
           child: SingleChildScrollView(
@@ -170,42 +171,43 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
               children: [
                 TextField(
                   controller: _nameCtrl,
-                  style: const TextStyle(color: textColor),
-                  decoration: const InputDecoration(labelText: 'Plan Name *'),
+                  style: TextStyle(color: c.text),
+                  decoration: InputDecoration(labelText: '${l10n.planName} *'),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _amountCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(color: textColor),
-                  decoration: const InputDecoration(
-                    labelText: 'Monthly Amount (₹) *',
+                  style: TextStyle(color: c.text),
+                  decoration: InputDecoration(
+                    labelText: '${l10n.monthlyAmount} (₹) *',
                     prefixText: '₹ ',
-                    prefixStyle: TextStyle(color: textMuted),
+                    prefixStyle: TextStyle(color: c.textMuted),
                   ),
                 ),
                 const SizedBox(height: 12),
                 // Start date picker
                 GestureDetector(
-                  onTap: _pickDate,
+                  onTap: () => _pickDate(context),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                     decoration: BoxDecoration(
-                      color: bgColor,
+                      color: c.bg,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: borderColor),
+                      border: Border.all(color: c.border),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: textMuted, size: 18),
+                        Icon(Icons.calendar_today, color: c.textMuted, size: 18),
                         const SizedBox(width: 10),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Start Date', style: TextStyle(color: textMuted, fontSize: 12)),
+                            Text('${l10n.startDate} *',
+                                style: TextStyle(color: c.textMuted, fontSize: 12)),
                             Text(
                               formatDate(_startDate.toIso8601String()),
-                              style: const TextStyle(color: textColor),
+                              style: TextStyle(color: c.text),
                             ),
                           ],
                         ),
@@ -216,31 +218,34 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _upiCtrl,
-                  style: const TextStyle(color: textColor),
-                  decoration: const InputDecoration(
-                    labelText: 'UPI ID *',
+                  style: TextStyle(color: c.text),
+                  decoration: InputDecoration(
+                    labelText: '${l10n.upiId} (optional)',
                     hintText: 'name@upi',
                   ),
                 ),
                 const SizedBox(height: 12),
                 // QR code upload
+                Text('${l10n.paymentQr} (optional)',
+                    style: TextStyle(color: c.textMuted, fontSize: 12)),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: _qrBase64 != null ? greenColor : primaryColor,
-                          side: BorderSide(color: _qrBase64 != null ? greenColor : borderColor),
+                          foregroundColor: _qrBase64 != null ? c.green : c.primary,
+                          side: BorderSide(color: _qrBase64 != null ? c.green : c.border),
                         ),
                         onPressed: _pickQrImage,
                         icon: Icon(_qrBase64 != null ? Icons.check_circle : Icons.qr_code),
-                        label: Text(_qrFileName ?? 'Upload QR Code (optional)'),
+                        label: Text(_qrFileName ?? 'Upload QR Code'),
                       ),
                     ),
                     if (_qrBase64 != null) ...[
                       const SizedBox(width: 8),
                       IconButton(
-                        icon: const Icon(Icons.close, color: dangerColor),
+                        icon: Icon(Icons.close, color: c.danger),
                         onPressed: () => setState(() {
                           _qrBase64 = null;
                           _qrFileName = null;
@@ -251,15 +256,15 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                 ),
                 const SizedBox(height: 16),
                 // Participants
-                const SectionTitle('PARTICIPANTS'),
+                SectionTitle('${l10n.participants.toUpperCase()} *'),
                 if (currentUser != null)
                   Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: primaryLight.withOpacity(0.3),
+                      color: c.primaryLight.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: primaryColor.withOpacity(0.3)),
+                      border: Border.all(color: c.primary.withOpacity(0.3)),
                     ),
                     child: Row(
                       children: [
@@ -268,10 +273,10 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                         Expanded(
                           child: Text(
                             '${currentUser.name} (you)',
-                            style: const TextStyle(color: textColor, fontSize: 13),
+                            style: TextStyle(color: c.text, fontSize: 13),
                           ),
                         ),
-                        const StatusBadge(label: 'Creator', color: primaryColor),
+                        StatusBadge(label: 'Creator', color: c.primary),
                       ],
                     ),
                   ),
@@ -279,9 +284,9 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: bgColor,
+                        color: c.bg,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: borderColor),
+                        border: Border.all(color: c.border),
                       ),
                       child: Row(
                         children: [
@@ -292,14 +297,14 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(p.name,
-                                    style: const TextStyle(color: textColor, fontSize: 13)),
+                                    style: TextStyle(color: c.text, fontSize: 13)),
                                 Text(p.email,
-                                    style: const TextStyle(color: textMuted, fontSize: 11)),
+                                    style: TextStyle(color: c.textMuted, fontSize: 11)),
                               ],
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.close, color: textMuted, size: 16),
+                            icon: Icon(Icons.close, color: c.textMuted, size: 16),
                             onPressed: () =>
                                 setState(() => _selectedParticipants.remove(p)),
                             padding: const EdgeInsets.all(4),
@@ -315,9 +320,9 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                       child: TextField(
                         controller: _participantEmailCtrl,
                         keyboardType: TextInputType.emailAddress,
-                        style: const TextStyle(color: textColor),
-                        decoration: const InputDecoration(
-                          labelText: 'Add participant by email',
+                        style: TextStyle(color: c.text),
+                        decoration: InputDecoration(
+                          labelText: l10n.addParticipant,
                           hintText: 'user@example.com',
                           isDense: true,
                         ),
@@ -327,7 +332,7 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                     const SizedBox(width: 8),
                     IconButton(
                       onPressed: () => _addParticipantByEmail(data),
-                      icon: const Icon(Icons.add_circle, color: primaryColor),
+                      icon: Icon(Icons.add_circle, color: c.primary),
                     ),
                   ],
                 ),
@@ -350,24 +355,28 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                                 Expanded(
                                   child: Text(
                                     '${u.name} (${u.email})',
-                                    style: const TextStyle(color: textMuted, fontSize: 12),
+                                    style: TextStyle(color: c.textMuted, fontSize: 12),
                                   ),
                                 ),
-                                const Icon(Icons.add, color: primaryColor, size: 16),
+                                Icon(Icons.add, color: c.primary, size: 16),
                               ],
                             ),
                           ),
                         )),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+                // Required fields note
+                Text('* Required fields',
+                    style: TextStyle(color: c.textDim, fontSize: 12)),
+                const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _loading ? null : _submit,
                   child: _loading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(color: primaryFg, strokeWidth: 2),
+                          child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
                         )
-                      : const Text('Create Kuri'),
+                      : Text(l10n.createKuri),
                 ),
                 const SizedBox(height: 24),
               ],

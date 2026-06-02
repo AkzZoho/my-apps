@@ -34,21 +34,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final user = ref.watch(currentUserProvider);
     final appDataAsync = ref.watch(appDataProvider);
     final lastSeen = ref.watch(lastSeenProvider);
 
     return appDataAsync.when(
-      loading: () => const Scaffold(
-        backgroundColor: bgColor,
-        body: Center(child: CircularProgressIndicator(color: primaryColor)),
+      loading: () => Scaffold(
+        backgroundColor: c.bg,
+        body: Center(child: CircularProgressIndicator(color: c.primary)),
       ),
       error: (e, _) => Scaffold(
-        backgroundColor: bgColor,
-        body: Center(child: Text('Error: $e', style: const TextStyle(color: dangerColor))),
+        backgroundColor: c.bg,
+        body: Center(child: Text('Error: $e', style: TextStyle(color: c.danger))),
       ),
       data: (data) {
-        if (user == null) return const Scaffold(backgroundColor: bgColor, body: SizedBox());
+        if (user == null) return Scaffold(backgroundColor: c.bg, body: const SizedBox());
 
         final myGroups = data.groups
             .where((g) => g.members.any((m) => m.userId == user.id))
@@ -74,7 +75,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final l10n = AppL10n(locale);
 
         return Scaffold(
-          backgroundColor: bgColor,
+          backgroundColor: c.bg,
           appBar: AppBar(
             title: Text(l10n.appName),
             actions: [
@@ -88,8 +89,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 child: Text(
                   locale == AppLocale.english ? 'EN' : 'മ',
-                  style: const TextStyle(
-                    color: primaryColor,
+                  style: TextStyle(
+                    color: c.primary,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
@@ -115,8 +116,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       right: 8,
                       child: Container(
                         padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          color: dangerColor,
+                        decoration: BoxDecoration(
+                          color: c.danger,
                           shape: BoxShape.circle,
                         ),
                         constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
@@ -158,8 +159,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     FloatingActionButton.small(
                       heroTag: 'join',
                       onPressed: () => _showJoinSheet(context, user),
-                      backgroundColor: surfaceColor,
-                      foregroundColor: primaryColor,
+                      backgroundColor: c.surface,
+                      foregroundColor: c.primary,
                       child: const Icon(Icons.link),
                     ),
                     const SizedBox(height: 8),
@@ -192,61 +193,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     showAppBottomSheet(
       context,
-      Container(
-        padding: const EdgeInsets.all(20),
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Text('Notifications',
-                    style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
-                const Spacer(),
-                IconButton(
-                    icon: const Icon(Icons.close, color: textMuted),
-                    onPressed: () => Navigator.pop(context)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: notifs.isEmpty
-                  ? const EmptyState(
-                      icon: Icons.notifications_none,
-                      title: 'No notifications',
-                      subtitle: 'You are all caught up!',
-                    )
-                  : ListView.builder(
-                      itemCount: notifs.length,
-                      itemBuilder: (ctx, i) {
-                        final n = notifs[i];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: n.read ? bgColor : primaryLight.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: n.read ? borderColor : primaryColor.withOpacity(0.3)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(n.title,
-                                  style: TextStyle(
-                                      color: n.read ? textMuted : textColor,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13)),
-                              const SizedBox(height: 4),
-                              Text(n.message, style: const TextStyle(color: textMuted, fontSize: 12)),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
+      Builder(builder: (ctx) {
+        final cc = ctx.colors;
+        return Container(
+          padding: const EdgeInsets.all(20),
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Text('Notifications',
+                      style: TextStyle(color: cc.text, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  IconButton(
+                      icon: Icon(Icons.close, color: cc.textMuted),
+                      onPressed: () => Navigator.pop(ctx)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: notifs.isEmpty
+                    ? const EmptyState(
+                        icon: Icons.notifications_none,
+                        title: 'No notifications',
+                        subtitle: 'You are all caught up!',
+                      )
+                    : ListView.builder(
+                        itemCount: notifs.length,
+                        itemBuilder: (listCtx, i) {
+                          final n = notifs[i];
+                          final lc = listCtx.colors;
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: n.read ? lc.bg : lc.primaryLight.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: n.read ? lc.border : lc.primary.withOpacity(0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(n.title,
+                                    style: TextStyle(
+                                        color: n.read ? lc.textMuted : lc.text,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13)),
+                                const SizedBox(height: 4),
+                                Text(n.message, style: TextStyle(color: lc.textMuted, fontSize: 12)),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      }),
     );
   }
 }
@@ -266,6 +271,7 @@ class _NoCommitteesView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -282,17 +288,17 @@ class _NoCommitteesView extends ConsumerWidget {
               return AppCard(
                 child: Row(
                   children: [
-                    const Icon(Icons.mail_outline, color: primaryColor, size: 20),
+                    Icon(Icons.mail_outline, color: c.primary, size: 20),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(group.name,
-                              style: const TextStyle(
-                                  color: textColor, fontWeight: FontWeight.w600)),
+                              style: TextStyle(
+                                  color: c.text, fontWeight: FontWeight.w600)),
                           Text('Code: ${inv.inviteCode}',
-                              style: const TextStyle(color: textMuted, fontSize: 12)),
+                              style: TextStyle(color: c.textMuted, fontSize: 12)),
                         ],
                       ),
                     ),
@@ -324,8 +330,8 @@ class _NoCommitteesView extends ConsumerWidget {
           const SizedBox(height: 12),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              foregroundColor: primaryColor,
-              side: const BorderSide(color: primaryColor),
+              foregroundColor: c.primary,
+              side: BorderSide(color: c.primary),
             ),
             onPressed: () => showAppBottomSheet(context, _JoinCommitteeSheet(user: user)),
             icon: const Icon(Icons.link),
@@ -370,6 +376,7 @@ class _CommitteeBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
     final activeGroup = myGroups[activeIdx];
     final isAdmin = activeGroup.createdBy == user.id;
 
@@ -407,16 +414,16 @@ class _CommitteeBody extends ConsumerWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                         decoration: BoxDecoration(
-                          color: isActive ? primaryColor : bgColor,
+                          color: isActive ? c.primary : c.bg,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: isActive ? primaryColor : borderColor,
+                            color: isActive ? c.primary : c.border,
                           ),
                         ),
                         child: Text(
                           g.name,
                           style: TextStyle(
-                            color: isActive ? primaryFg : textMuted,
+                            color: isActive ? c.primaryFg : c.textMuted,
                             fontSize: 13,
                             fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                           ),
@@ -434,9 +441,9 @@ class _CommitteeBody extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: surfaceColor,
+              color: c.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: borderColor),
+              border: Border.all(color: c.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -449,28 +456,28 @@ class _CommitteeBody extends ConsumerWidget {
                         children: [
                           Text(
                             activeGroup.name,
-                            style: const TextStyle(
-                                color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                                color: c.text, fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                           if (activeGroup.description != null &&
                               activeGroup.description!.isNotEmpty)
                             Text(
                               activeGroup.description!,
-                              style: const TextStyle(color: textMuted, fontSize: 13),
+                              style: TextStyle(color: c.textMuted, fontSize: 13),
                             ),
                         ],
                       ),
                     ),
                     StatusBadge(
                       label: isAdmin ? 'Admin' : 'Member',
-                      color: isAdmin ? primaryColor : textMuted,
+                      color: isAdmin ? c.primary : c.textMuted,
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
                   '${activeGroup.members.length} member${activeGroup.members.length != 1 ? 's' : ''}',
-                  style: const TextStyle(color: textDim, fontSize: 12),
+                  style: TextStyle(color: c.textDim, fontSize: 12),
                 ),
               ],
             ),
@@ -489,21 +496,21 @@ class _CommitteeBody extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: surfaceColor,
+                color: c.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: borderColor),
+                border: Border.all(color: c.border),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.people_outline, color: primaryColor, size: 20),
+                  Icon(Icons.people_outline, color: c.primary, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'Members (${activeGroup.members.length})',
-                      style: const TextStyle(color: textColor),
+                      style: TextStyle(color: c.text),
                     ),
                   ),
-                  const Icon(Icons.chevron_right, color: textMuted),
+                  Icon(Icons.chevron_right, color: c.textMuted),
                 ],
               ),
             ),
@@ -524,33 +531,33 @@ class _CommitteeBody extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: surfaceColor,
+                color: c.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: borderColor),
+                border: Border.all(color: c.border),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.chat_bubble_outline, color: primaryColor, size: 20),
+                  Icon(Icons.chat_bubble_outline, color: c.primary, size: 20),
                   const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text('Chat', style: TextStyle(color: textColor)),
+                  Expanded(
+                    child: Text('Chat', style: TextStyle(color: c.text)),
                   ),
                   if (unread > 0) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: primaryColor,
+                        color: c.primary,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         '$unread',
-                        style: const TextStyle(
-                            color: primaryFg, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: c.primaryFg, fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ),
                     const SizedBox(width: 4),
                   ],
-                  const Icon(Icons.chevron_right, color: textMuted),
+                  Icon(Icons.chevron_right, color: c.textMuted),
                 ],
               ),
             ),
@@ -562,20 +569,20 @@ class _CommitteeBody extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: warnBg,
+                color: c.warnBg,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: warnColor.withOpacity(0.3)),
+                border: Border.all(color: c.warn.withOpacity(0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.mail_outline, color: warnColor, size: 18),
-                      SizedBox(width: 8),
+                      Icon(Icons.mail_outline, color: c.warn, size: 18),
+                      const SizedBox(width: 8),
                       Text('Pending Invitations',
                           style: TextStyle(
-                              color: warnColor, fontWeight: FontWeight.w600, fontSize: 14)),
+                              color: c.warn, fontWeight: FontWeight.w600, fontSize: 14)),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -594,10 +601,10 @@ class _CommitteeBody extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(group.name,
-                                    style: const TextStyle(
-                                        color: textColor, fontWeight: FontWeight.w500, fontSize: 13)),
+                                    style: TextStyle(
+                                        color: c.text, fontWeight: FontWeight.w500, fontSize: 13)),
                                 Text('Code: ${inv.inviteCode}',
-                                    style: const TextStyle(color: textMuted, fontSize: 11)),
+                                    style: TextStyle(color: c.textMuted, fontSize: 11)),
                               ],
                             ),
                           ),
@@ -694,6 +701,7 @@ class _CreateCommitteeSheetState extends ConsumerState<_CreateCommitteeSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       padding: const EdgeInsets.all(20),
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
@@ -704,25 +712,24 @@ class _CreateCommitteeSheetState extends ConsumerState<_CreateCommitteeSheet> {
           children: [
             Row(
               children: [
-                const Text('Create Committee',
-                    style:
-                        TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Create Committee',
+                    style: TextStyle(color: c.text, fontSize: 18, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 IconButton(
-                    icon: const Icon(Icons.close, color: textMuted),
+                    icon: Icon(Icons.close, color: c.textMuted),
                     onPressed: () => Navigator.pop(context)),
               ],
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _nameCtrl,
-              style: const TextStyle(color: textColor),
+              style: TextStyle(color: c.text),
               decoration: const InputDecoration(labelText: 'Committee Name *'),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _descCtrl,
-              style: const TextStyle(color: textColor),
+              style: TextStyle(color: c.text),
               decoration: const InputDecoration(labelText: 'Description (optional)'),
               maxLines: 2,
             ),
@@ -733,7 +740,7 @@ class _CreateCommitteeSheetState extends ConsumerState<_CreateCommitteeSheet> {
                   child: TextField(
                     controller: _emailCtrl,
                     keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(color: textColor),
+                    style: TextStyle(color: c.text),
                     decoration: const InputDecoration(
                       labelText: 'Invite member email',
                       hintText: 'user@example.com',
@@ -744,7 +751,7 @@ class _CreateCommitteeSheetState extends ConsumerState<_CreateCommitteeSheet> {
                 const SizedBox(width: 8),
                 IconButton(
                   onPressed: _addEmail,
-                  icon: const Icon(Icons.add_circle, color: primaryColor),
+                  icon: Icon(Icons.add_circle, color: c.primary),
                 ),
               ],
             ),
@@ -757,9 +764,9 @@ class _CreateCommitteeSheetState extends ConsumerState<_CreateCommitteeSheet> {
                     .map((e) => Chip(
                           label: Text(e, style: const TextStyle(fontSize: 12)),
                           onDeleted: () => setState(() => _emails.remove(e)),
-                          deleteIconColor: textMuted,
-                          backgroundColor: bgColor,
-                          side: const BorderSide(color: borderColor),
+                          deleteIconColor: c.textMuted,
+                          backgroundColor: c.bg,
+                          side: BorderSide(color: c.border),
                         ))
                     .toList(),
               ),
@@ -768,10 +775,10 @@ class _CreateCommitteeSheetState extends ConsumerState<_CreateCommitteeSheet> {
             ElevatedButton(
               onPressed: _loading ? null : _submit,
               child: _loading
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(color: primaryFg, strokeWidth: 2),
+                      child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
                     )
                   : const Text('Create Committee'),
             ),
@@ -828,6 +835,7 @@ class _JoinCommitteeSheetState extends ConsumerState<_JoinCommitteeSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -836,19 +844,18 @@ class _JoinCommitteeSheetState extends ConsumerState<_JoinCommitteeSheet> {
         children: [
           Row(
             children: [
-              const Text('Join Committee',
-                  style:
-                      TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Join Committee',
+                  style: TextStyle(color: c.text, fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
               IconButton(
-                  icon: const Icon(Icons.close, color: textMuted),
+                  icon: Icon(Icons.close, color: c.textMuted),
                   onPressed: () => Navigator.pop(context)),
             ],
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _codeCtrl,
-            style: const TextStyle(color: textColor, letterSpacing: 2),
+            style: TextStyle(color: c.text, letterSpacing: 2),
             textCapitalization: TextCapitalization.characters,
             decoration: const InputDecoration(
               labelText: '6-Character Invite Code',
@@ -861,10 +868,10 @@ class _JoinCommitteeSheetState extends ConsumerState<_JoinCommitteeSheet> {
           ElevatedButton(
             onPressed: _loading ? null : _submit,
             child: _loading
-                ? const SizedBox(
+                ? SizedBox(
                     height: 20,
                     width: 20,
-                    child: CircularProgressIndicator(color: primaryFg, strokeWidth: 2),
+                    child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
                   )
                 : const Text('Join Committee'),
           ),

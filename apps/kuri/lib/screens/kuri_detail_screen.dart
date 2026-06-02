@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../providers/providers.dart';
 import '../services/data_service.dart';
@@ -19,16 +20,8 @@ class KuriDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<KuriDetailScreen> createState() => _KuriDetailScreenState();
 }
 
-class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen>
-    with SingleTickerProviderStateMixin {
-  TabController? _tabController;
+class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
   bool _loading = false;
-
-  @override
-  void dispose() {
-    _tabController?.dispose();
-    super.dispose();
-  }
 
   Future<void> _deleteKuri(KuriPlan kuri) async {
     final user = ref.read(currentUserProvider);
@@ -58,19 +51,22 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final locale = ref.watch(localeProvider);
+    final l10n = AppL10n(locale);
     final user = ref.watch(currentUserProvider);
     final appDataAsync = ref.watch(appDataProvider);
 
     return appDataAsync.when(
       loading: () => Scaffold(
-        backgroundColor: bgColor,
+        backgroundColor: c.bg,
         appBar: AppBar(title: const Text('Loading...')),
-        body: const Center(child: CircularProgressIndicator(color: primaryColor)),
+        body: Center(child: CircularProgressIndicator(color: c.primary)),
       ),
       error: (e, _) => Scaffold(
-        backgroundColor: bgColor,
+        backgroundColor: c.bg,
         appBar: AppBar(title: const Text('Error')),
-        body: Center(child: Text('$e', style: const TextStyle(color: dangerColor))),
+        body: Center(child: Text('$e', style: TextStyle(color: c.danger))),
       ),
       data: (data) {
         final kuri = data.kuris.firstWhere(
@@ -90,10 +86,10 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen>
 
         if (kuri.id.isEmpty) {
           return Scaffold(
-            backgroundColor: bgColor,
+            backgroundColor: c.bg,
             appBar: AppBar(title: const Text('Kuri')),
-            body: const Center(
-                child: Text('Kuri not found', style: TextStyle(color: textMuted))),
+            body: Center(
+                child: Text('Kuri not found', style: TextStyle(color: c.textMuted))),
           );
         }
 
@@ -102,71 +98,137 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen>
         final approvedPayments = kuriPayments.where((p) => p.status == 'approved').toList();
         final totalCollected = approvedPayments.fold<double>(0, (s, p) => s + p.amount);
 
-        if (isCreator) {
-          _tabController ??= TabController(length: 2, vsync: this);
-        }
-
         return LoadingOverlay(
           loading: _loading,
           child: Scaffold(
-            backgroundColor: bgColor,
+            backgroundColor: c.bg,
             appBar: AppBar(
               title: Text(kuri.name),
               actions: [
                 if (isCreator)
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, color: dangerColor),
+                    icon: Icon(Icons.delete_outline, color: c.danger),
                     onPressed: () => _deleteKuri(kuri),
                     tooltip: 'Delete Kuri',
                   ),
               ],
             ),
-            body: Column(
-              children: [
-                // Header card
-                _KuriHeader(kuri: kuri, totalCollected: totalCollected),
-                // Totals panel
-                _TotalsPanel(
-                  kuri: kuri,
-                  payments: kuriPayments,
-                  data: data,
-                  isCreator: isCreator,
-                  currentUserId: user?.id ?? '',
-                ),
-                // Tab bar for creator
-                if (isCreator && _tabController != null) ...[
-                  Container(
-                    color: surfaceColor,
-                    child: TabBar(
-                      controller: _tabController,
-                      tabs: const [
-                        Tab(text: 'Receipts'),
-                        Tab(text: 'Settings'),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
+            body: isCreator
+                ? SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _ReceiptsTab(kuri: kuri, data: data, currentUserId: user?.id ?? ''),
-                        _SettingsTab(kuri: kuri, currentUserId: user?.id ?? ''),
+                        // Header card
+                        _KuriHeader(kuri: kuri, totalCollected: totalCollected),
+                        // Totals panel
+                        _TotalsPanel(
+                          kuri: kuri,
+                          payments: kuriPayments,
+                          data: data,
+                          isCreator: true,
+                          currentUserId: user?.id ?? '',
+                        ),
+                        // Navigation tiles for creator
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Column(
+                            children: [
+                              _NavTile(
+                                icon: Icons.receipt_long_outlined,
+                                label: l10n.receipts,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => KuriReceiptsScreen(
+                                      kuri: kuri,
+                                      currentUserId: user?.id ?? '',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              _NavTile(
+                                icon: Icons.settings_outlined,
+                                label: l10n.settings,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => KuriSettingsScreen(
+                                      kuri: kuri,
+                                      currentUserId: user?.id ?? '',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
+                  )
+                : Column(
+                    children: [
+                      // Header card
+                      _KuriHeader(kuri: kuri, totalCollected: totalCollected),
+                      // Totals panel
+                      _TotalsPanel(
+                        kuri: kuri,
+                        payments: kuriPayments,
+                        data: data,
+                        isCreator: false,
+                        currentUserId: user?.id ?? '',
+                      ),
+                      // Member payment view
+                      Expanded(
+                        child: _MemberPaymentView(
+                          kuri: kuri,
+                          data: data,
+                          currentUserId: user?.id ?? '',
+                        ),
+                      ),
+                    ],
                   ),
-                ] else if (!isCreator)
-                  Expanded(
-                    child: _MemberPaymentView(
-                      kuri: kuri,
-                      data: data,
-                      currentUserId: user?.id ?? '',
-                    ),
-                  ),
-              ],
-            ),
           ),
         );
       },
+    );
+  }
+}
+
+// ─── Nav Tile ─────────────────────────────────────────────────────────────────
+
+class _NavTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _NavTile({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: c.border),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: c.primary, size: 22),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(label, style: TextStyle(color: c.text, fontSize: 15)),
+            ),
+            Icon(Icons.chevron_right, color: c.textMuted),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -181,9 +243,10 @@ class _KuriHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       padding: const EdgeInsets.all(16),
-      color: surfaceColor,
+      color: c.surface,
       child: Row(
         children: [
           Expanded(
@@ -194,20 +257,20 @@ class _KuriHeader extends StatelessWidget {
                   children: [
                     Text(
                       '₹${kuri.contributionAmount.toInt()}/mo',
-                      style: const TextStyle(
-                          color: primaryColor, fontSize: 22, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          color: c.primary, fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(width: 12),
                     Text(
                       '${kuri.participantUserIds.length} participants',
-                      style: const TextStyle(color: textMuted, fontSize: 13),
+                      style: TextStyle(color: c.textMuted, fontSize: 13),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Started ${formatDate(kuri.startDate)}',
-                  style: const TextStyle(color: textDim, fontSize: 12),
+                  style: TextStyle(color: c.textDim, fontSize: 12),
                 ),
               ],
             ),
@@ -215,11 +278,11 @@ class _KuriHeader extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('Total Collected', style: TextStyle(color: textMuted, fontSize: 11)),
+              Text('Total Collected', style: TextStyle(color: c.textMuted, fontSize: 11)),
               Text(
                 '₹${totalCollected.toInt()}',
-                style: const TextStyle(
-                    color: greenColor, fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    color: c.green, fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -248,6 +311,7 @@ class _TotalsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final approved = payments.where((p) => p.status == 'approved').toList();
     final planTotal = approved.fold<double>(0, (s, p) => s + p.amount);
 
@@ -256,16 +320,16 @@ class _TotalsPanel extends StatelessWidget {
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: surfaceColor,
+          color: c.surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: borderColor),
+          border: Border.all(color: c.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Payment Summary',
+            Text('Payment Summary',
                 style: TextStyle(
-                    color: textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+                    color: c.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             ...kuri.participantUserIds.map((uid) {
               final participant = data.users.firstWhere(
@@ -283,22 +347,22 @@ class _TotalsPanel extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                         child: Text(participant.name,
-                            style: const TextStyle(color: textColor, fontSize: 13))),
+                            style: TextStyle(color: c.text, fontSize: 13))),
                     Text('₹${userPaid.toInt()}',
-                        style: const TextStyle(color: textColor, fontSize: 13)),
+                        style: TextStyle(color: c.text, fontSize: 13)),
                   ],
                 ),
               );
             }),
-            const Divider(color: borderColor, height: 16),
+            Divider(color: c.border, height: 16),
             Row(
               children: [
-                const Expanded(
+                Expanded(
                     child: Text('Total Collected',
-                        style: TextStyle(color: textColor, fontWeight: FontWeight.w600))),
+                        style: TextStyle(color: c.text, fontWeight: FontWeight.w600))),
                 Text('₹${planTotal.toInt()}',
-                    style: const TextStyle(
-                        color: greenColor, fontWeight: FontWeight.bold)),
+                    style: TextStyle(
+                        color: c.green, fontWeight: FontWeight.bold)),
               ],
             ),
           ],
@@ -312,32 +376,32 @@ class _TotalsPanel extends StatelessWidget {
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: surfaceColor,
+          color: c.surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: borderColor),
+          border: Border.all(color: c.border),
         ),
         child: Row(
           children: [
             Expanded(
               child: Column(
                 children: [
-                  const Text('Your Paid', style: TextStyle(color: textMuted, fontSize: 12)),
+                  Text('Your Paid', style: TextStyle(color: c.textMuted, fontSize: 12)),
                   const SizedBox(height: 4),
                   Text('₹${myPaid.toInt()}',
-                      style: const TextStyle(
-                          color: primaryColor, fontSize: 18, fontWeight: FontWeight.bold)),
+                      style: TextStyle(
+                          color: c.primary, fontSize: 18, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
-            Container(width: 1, height: 40, color: borderColor),
+            Container(width: 1, height: 40, color: c.border),
             Expanded(
               child: Column(
                 children: [
-                  const Text('Plan Total', style: TextStyle(color: textMuted, fontSize: 12)),
+                  Text('Plan Total', style: TextStyle(color: c.textMuted, fontSize: 12)),
                   const SizedBox(height: 4),
                   Text('₹${planTotal.toInt()}',
-                      style: const TextStyle(
-                          color: greenColor, fontSize: 18, fontWeight: FontWeight.bold)),
+                      style: TextStyle(
+                          color: c.green, fontSize: 18, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -348,20 +412,19 @@ class _TotalsPanel extends StatelessWidget {
   }
 }
 
-// ─── Receipts Tab (creator) ───────────────────────────────────────────────────
+// ─── Receipts Screen (full screen, extracted from _ReceiptsTab) ───────────────
 
-class _ReceiptsTab extends ConsumerStatefulWidget {
+class KuriReceiptsScreen extends ConsumerStatefulWidget {
   final KuriPlan kuri;
-  final AppData data;
   final String currentUserId;
 
-  const _ReceiptsTab({required this.kuri, required this.data, required this.currentUserId});
+  const KuriReceiptsScreen({super.key, required this.kuri, required this.currentUserId});
 
   @override
-  ConsumerState<_ReceiptsTab> createState() => _ReceiptsTabState();
+  ConsumerState<KuriReceiptsScreen> createState() => _KuriReceiptsScreenState();
 }
 
-class _ReceiptsTabState extends ConsumerState<_ReceiptsTab> {
+class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
   final Set<String> _expandedMonths = {};
   String? _reviewingPaymentId;
   final _rejectionNoteCtrl = TextEditingController();
@@ -398,259 +461,266 @@ class _ReceiptsTabState extends ConsumerState<_ReceiptsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final locale = ref.watch(localeProvider);
+    final l10n = AppL10n(locale);
     final appDataAsync = ref.watch(appDataProvider);
-    return appDataAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator(color: primaryColor)),
-      error: (e, _) => Center(child: Text('$e')),
-      data: (data) {
-        final months = generateMonths(widget.kuri.startDate, includeFuture: false);
-        final payments = data.payments.where((p) => p.kuriId == widget.kuri.id).toList();
 
-        if (months.isEmpty) {
-          return const EmptyState(
-            icon: Icons.receipt_long,
-            title: 'No months yet',
-            subtitle: 'Payments will appear here once the plan starts',
-          );
-        }
+    return Scaffold(
+      backgroundColor: c.bg,
+      appBar: AppBar(title: Text(l10n.receipts)),
+      body: appDataAsync.when(
+        loading: () => Center(child: CircularProgressIndicator(color: c.primary)),
+        error: (e, _) => Center(child: Text('$e')),
+        data: (data) {
+          final months = generateMonths(widget.kuri.startDate, includeFuture: false);
+          final payments = data.payments.where((p) => p.kuriId == widget.kuri.id).toList();
 
-        return ListView(
-          padding: const EdgeInsets.all(12),
-          children: months.reversed.map((month) {
-            final monthPayments = payments.where((p) => p.month == month).toList();
-            final confirmed = monthPayments.where((p) => p.status == 'approved').length;
-            final pending = monthPayments.where((p) => p.status == 'submitted').length;
-            final totalParticipants = widget.kuri.participantUserIds.length;
-            final isExpanded = _expandedMonths.contains(month);
+          if (months.isEmpty) {
+            return const EmptyState(
+              icon: Icons.receipt_long,
+              title: 'No months yet',
+              subtitle: 'Payments will appear here once the plan starts',
+            );
+          }
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: surfaceColor,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: borderColor),
-              ),
-              child: Column(
-                children: [
-                  InkWell(
-                    onTap: () => setState(() {
-                      if (isExpanded) {
-                        _expandedMonths.remove(month);
-                      } else {
-                        _expandedMonths.add(month);
-                      }
-                    }),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              formatMonthKey(month),
-                              style: const TextStyle(
-                                  color: textColor, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          Text(
-                            '$confirmed/$totalParticipants confirmed',
-                            style: const TextStyle(color: greenColor, fontSize: 12),
-                          ),
-                          if (pending > 0) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: warnColor.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+          return ListView(
+            padding: const EdgeInsets.all(12),
+            children: months.reversed.map((month) {
+              final monthPayments = payments.where((p) => p.month == month).toList();
+              final confirmed = monthPayments.where((p) => p.status == 'approved').length;
+              final pending = monthPayments.where((p) => p.status == 'submitted').length;
+              final totalParticipants = widget.kuri.participantUserIds.length;
+              final isExpanded = _expandedMonths.contains(month);
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: c.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: c.border),
+                ),
+                child: Column(
+                  children: [
+                    InkWell(
+                      onTap: () => setState(() {
+                        if (isExpanded) {
+                          _expandedMonths.remove(month);
+                        } else {
+                          _expandedMonths.add(month);
+                        }
+                      }),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            Expanded(
                               child: Text(
-                                '$pending pending',
-                                style: const TextStyle(color: warnColor, fontSize: 11),
+                                formatMonthKey(month),
+                                style: TextStyle(
+                                    color: c.text, fontWeight: FontWeight.w600),
                               ),
+                            ),
+                            Text(
+                              '$confirmed/$totalParticipants confirmed',
+                              style: TextStyle(color: c.green, fontSize: 12),
+                            ),
+                            if (pending > 0) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: c.warn.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '$pending pending',
+                                  style: TextStyle(color: c.warn, fontSize: 11),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(width: 8),
+                            Icon(
+                              isExpanded ? Icons.expand_less : Icons.expand_more,
+                              color: c.textMuted,
+                              size: 20,
                             ),
                           ],
-                          const SizedBox(width: 8),
-                          Icon(
-                            isExpanded ? Icons.expand_less : Icons.expand_more,
-                            color: textMuted,
-                            size: 20,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                  if (isExpanded) ...[
-                    const Divider(color: borderColor, height: 1),
-                    ...widget.kuri.participantUserIds.map((uid) {
-                      final participant = data.users.firstWhere(
-                        (u) => u.id == uid,
-                        orElse: () => AppUser(id: uid, name: 'Unknown', email: ''),
-                      );
-                      final payment = monthPayments.firstWhere(
-                        (p) => p.userId == uid,
-                        orElse: () => KuriPayment(
-                          id: '',
-                          kuriId: '',
-                          userId: uid,
-                          month: month,
-                          transactionId: '',
-                          amount: 0,
-                          status: '',
-                          submittedAt: '',
-                        ),
-                      );
-                      final isReviewing = _reviewingPaymentId == payment.id;
+                    if (isExpanded) ...[
+                      Divider(color: c.border, height: 1),
+                      ...widget.kuri.participantUserIds.map((uid) {
+                        final participant = data.users.firstWhere(
+                          (u) => u.id == uid,
+                          orElse: () => AppUser(id: uid, name: 'Unknown', email: ''),
+                        );
+                        final payment = monthPayments.firstWhere(
+                          (p) => p.userId == uid,
+                          orElse: () => KuriPayment(
+                            id: '',
+                            kuriId: '',
+                            userId: uid,
+                            month: month,
+                            transactionId: '',
+                            amount: 0,
+                            status: '',
+                            submittedAt: '',
+                          ),
+                        );
+                        final isReviewing = _reviewingPaymentId == payment.id;
 
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: const BoxDecoration(
-                          border: Border(bottom: BorderSide(color: borderColor)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                AvatarWidget(name: participant.name, size: 32),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(participant.name,
-                                          style: const TextStyle(
-                                              color: textColor, fontWeight: FontWeight.w500)),
-                                      if (payment.id.isNotEmpty)
-                                        Text(
-                                          'Txn: ${payment.transactionId} · ₹${payment.amount.toInt()}',
-                                          style: const TextStyle(
-                                              color: textMuted, fontSize: 11),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                _paymentStatusBadge(payment.status),
-                              ],
-                            ),
-                            // Receipt thumbnail (approved with receipt)
-                            if (payment.id.isNotEmpty &&
-                                payment.status == 'approved' &&
-                                payment.receiptBase64 != null &&
-                                payment.receiptBase64!.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: _buildReceiptImage(payment.receiptBase64!),
-                              ),
-                            ],
-                            // Review button
-                            if (payment.id.isNotEmpty &&
-                                payment.status == 'submitted' &&
-                                !isReviewing)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: ElevatedButton(
-                                  onPressed: () => setState(() {
-                                    _reviewingPaymentId = payment.id;
-                                    _rejectionNoteCtrl.clear();
-                                  }),
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 6),
-                                    textStyle: const TextStyle(fontSize: 12),
-                                  ),
-                                  child: const Text('Review'),
-                                ),
-                              ),
-                            // Inline review form
-                            if (isReviewing) ...[
-                              const SizedBox(height: 8),
-                              if (payment.receiptBase64 != null &&
-                                  payment.receiptBase64!.isNotEmpty) ...[
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: _buildReceiptImage(payment.receiptBase64!,
-                                      fullWidth: true),
-                                ),
-                                const SizedBox(height: 8),
-                              ],
-                              TextField(
-                                controller: _rejectionNoteCtrl,
-                                style: const TextStyle(color: textColor, fontSize: 13),
-                                decoration: const InputDecoration(
-                                  labelText: 'Note (for rejection)',
-                                  isDense: true,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border(bottom: BorderSide(color: c.border)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Row(
                                 children: [
+                                  AvatarWidget(name: participant.name, size: 32),
+                                  const SizedBox(width: 10),
                                   Expanded(
-                                    child: ElevatedButton(
-                                      onPressed: _reviewing
-                                          ? null
-                                          : () => _reviewPayment(payment.id, true),
-                                      style: ElevatedButton.styleFrom(
-                                          backgroundColor: greenColor),
-                                      child: const Text('Confirm',
-                                          style: TextStyle(color: Colors.white)),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(participant.name,
+                                            style: TextStyle(
+                                                color: c.text, fontWeight: FontWeight.w500)),
+                                        if (payment.id.isNotEmpty)
+                                          Text(
+                                            'Txn: ${payment.transactionId} · ₹${payment.amount.toInt()}',
+                                            style: TextStyle(color: c.textMuted, fontSize: 11),
+                                          ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      onPressed: _reviewing
-                                          ? null
-                                          : () => _reviewPayment(payment.id, false),
-                                      style: ElevatedButton.styleFrom(
-                                          backgroundColor: dangerColor),
-                                      child: const Text('Reject',
-                                          style: TextStyle(color: Colors.white)),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  TextButton(
-                                    onPressed: () =>
-                                        setState(() => _reviewingPaymentId = null),
-                                    child: const Text('Cancel',
-                                        style: TextStyle(color: textMuted)),
-                                  ),
+                                  _paymentStatusBadge(c, payment.status),
                                 ],
                               ),
-                              if (payment.notes != null && payment.notes!.isNotEmpty)
+                              // Receipt thumbnail (approved with receipt)
+                              if (payment.id.isNotEmpty &&
+                                  payment.status == 'approved' &&
+                                  payment.receiptBase64 != null &&
+                                  payment.receiptBase64!.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: _buildReceiptImage(payment.receiptBase64!),
+                                ),
+                              ],
+                              // Review button
+                              if (payment.id.isNotEmpty &&
+                                  payment.status == 'submitted' &&
+                                  !isReviewing)
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    'Note: ${payment.notes}',
-                                    style: const TextStyle(color: textMuted, fontSize: 11),
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: ElevatedButton(
+                                    onPressed: () => setState(() {
+                                      _reviewingPaymentId = payment.id;
+                                      _rejectionNoteCtrl.clear();
+                                    }),
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 6),
+                                      textStyle: const TextStyle(fontSize: 12),
+                                    ),
+                                    child: Text(l10n.review),
                                   ),
                                 ),
+                              // Inline review form
+                              if (isReviewing) ...[
+                                const SizedBox(height: 8),
+                                if (payment.receiptBase64 != null &&
+                                    payment.receiptBase64!.isNotEmpty) ...[
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: _buildReceiptImage(payment.receiptBase64!,
+                                        fullWidth: true),
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
+                                TextField(
+                                  controller: _rejectionNoteCtrl,
+                                  style: TextStyle(color: c.text, fontSize: 13),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Note (for rejection)',
+                                    isDense: true,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: _reviewing
+                                            ? null
+                                            : () => _reviewPayment(payment.id, true),
+                                        style: ElevatedButton.styleFrom(
+                                            backgroundColor: c.green),
+                                        child: Text(l10n.approve,
+                                            style: const TextStyle(color: Colors.white)),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: _reviewing
+                                            ? null
+                                            : () => _reviewPayment(payment.id, false),
+                                        style: ElevatedButton.styleFrom(
+                                            backgroundColor: c.danger),
+                                        child: Text(l10n.reject,
+                                            style: const TextStyle(color: Colors.white)),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    TextButton(
+                                      onPressed: () =>
+                                          setState(() => _reviewingPaymentId = null),
+                                      child: Text(l10n.cancel,
+                                          style: TextStyle(color: c.textMuted)),
+                                    ),
+                                  ],
+                                ),
+                                if (payment.notes != null && payment.notes!.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      'Note: ${payment.notes}',
+                                      style: TextStyle(color: c.textMuted, fontSize: 11),
+                                    ),
+                                  ),
+                              ],
                             ],
-                          ],
-                        ),
-                      );
-                    }),
+                          ),
+                        );
+                      }),
+                    ],
                   ],
-                ],
-              ),
-            );
-          }).toList(),
-        );
-      },
+                ),
+              );
+            }).toList(),
+          );
+        },
+      ),
     );
   }
 
-  Widget _paymentStatusBadge(String status) {
+  Widget _paymentStatusBadge(AppColors c, String status) {
     switch (status) {
       case 'approved':
-        return const StatusBadge(label: 'Confirmed', color: greenColor);
+        return StatusBadge(label: 'Confirmed', color: c.green);
       case 'submitted':
-        return const StatusBadge(label: 'Pending review', color: warnColor);
+        return StatusBadge(label: 'Pending review', color: c.warn);
       case 'rejected':
-        return const StatusBadge(label: 'Rejected', color: dangerColor);
+        return StatusBadge(label: 'Rejected', color: c.danger);
       default:
-        return const StatusBadge(label: 'Not submitted', color: textDim);
+        return StatusBadge(label: 'Not submitted', color: c.textDim);
     }
   }
 
@@ -669,24 +739,24 @@ class _ReceiptsTabState extends ConsumerState<_ReceiptsTab> {
         fit: fullWidth ? BoxFit.contain : BoxFit.cover,
       );
     } catch (_) {
-      return const Icon(Icons.broken_image, color: textDim);
+      return Icon(Icons.broken_image, color: context.colors.textDim);
     }
   }
 }
 
-// ─── Settings Tab (creator) ───────────────────────────────────────────────────
+// ─── Settings Screen (full screen, extracted from _SettingsTab) ───────────────
 
-class _SettingsTab extends ConsumerStatefulWidget {
+class KuriSettingsScreen extends ConsumerStatefulWidget {
   final KuriPlan kuri;
   final String currentUserId;
 
-  const _SettingsTab({required this.kuri, required this.currentUserId});
+  const KuriSettingsScreen({super.key, required this.kuri, required this.currentUserId});
 
   @override
-  ConsumerState<_SettingsTab> createState() => _SettingsTabState();
+  ConsumerState<KuriSettingsScreen> createState() => _KuriSettingsScreenState();
 }
 
-class _SettingsTabState extends ConsumerState<_SettingsTab> {
+class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
   late TextEditingController _upiCtrl;
   String? _qrBase64;
   String? _qrFileName;
@@ -749,63 +819,73 @@ class _SettingsTabState extends ConsumerState<_SettingsTab> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SectionTitle('PAYMENT SETTINGS'),
-          TextField(
-            controller: _upiCtrl,
-            style: const TextStyle(color: textColor),
-            decoration: const InputDecoration(
-              labelText: 'UPI ID *',
-              hintText: 'name@upi',
+    final c = context.colors;
+    final locale = ref.watch(localeProvider);
+    final l10n = AppL10n(locale);
+
+    return Scaffold(
+      backgroundColor: c.bg,
+      appBar: AppBar(title: Text(l10n.settings)),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SectionTitle('PAYMENT SETTINGS'),
+            TextField(
+              controller: _upiCtrl,
+              style: TextStyle(color: c.text),
+              decoration: InputDecoration(
+                labelText: '${l10n.upiId} (optional)',
+                hintText: 'name@upi',
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          if (_qrBase64 != null && _qrBase64!.isNotEmpty) ...[
-            const Text('Current QR Code:', style: TextStyle(color: textMuted, fontSize: 12)),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: _buildQrImage(_qrBase64!),
+            const SizedBox(height: 12),
+            if (_qrBase64 != null && _qrBase64!.isNotEmpty) ...[
+              Text('Current QR Code:', style: TextStyle(color: c.textMuted, fontSize: 12)),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: _buildQrImage(_qrBase64!),
+              ),
+              const SizedBox(height: 8),
+            ],
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: c.primary,
+                side: BorderSide(color: c.border),
+              ),
+              onPressed: _pickQrImage,
+              icon: const Icon(Icons.qr_code),
+              label: Text(_qrFileName ??
+                  (_qrBase64 != null
+                      ? 'Change ${l10n.paymentQr} (optional)'
+                      : 'Upload ${l10n.paymentQr} (optional)')),
             ),
-            const SizedBox(height: 8),
+            if (_qrBase64 != null) ...[
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => setState(() {
+                  _qrBase64 = null;
+                  _qrFileName = null;
+                }),
+                icon: Icon(Icons.delete_outline, color: c.danger),
+                label: Text('Remove QR Code', style: TextStyle(color: c.danger)),
+              ),
+            ],
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
+                    )
+                  : const Text('Save Settings'),
+            ),
           ],
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: primaryColor,
-              side: const BorderSide(color: borderColor),
-            ),
-            onPressed: _pickQrImage,
-            icon: const Icon(Icons.qr_code),
-            label:
-                Text(_qrFileName ?? (_qrBase64 != null ? 'Change QR Code' : 'Upload QR Code')),
-          ),
-          if (_qrBase64 != null) ...[
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: () => setState(() {
-                _qrBase64 = null;
-                _qrFileName = null;
-              }),
-              icon: const Icon(Icons.delete_outline, color: dangerColor),
-              label: const Text('Remove QR Code', style: TextStyle(color: dangerColor)),
-            ),
-          ],
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(color: primaryFg, strokeWidth: 2),
-                  )
-                : const Text('Save Settings'),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -820,7 +900,7 @@ class _SettingsTabState extends ConsumerState<_SettingsTab> {
       }
       return Image.memory(bytes, height: 150, fit: BoxFit.contain);
     } catch (_) {
-      return const Icon(Icons.broken_image, color: textDim);
+      return Icon(Icons.broken_image, color: context.colors.textDim);
     }
   }
 }
@@ -846,8 +926,9 @@ class _MemberPaymentViewState extends ConsumerState<_MemberPaymentView> {
   @override
   Widget build(BuildContext context) {
     final appDataAsync = ref.watch(appDataProvider);
+    final c = context.colors;
     return appDataAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator(color: primaryColor)),
+      loading: () => Center(child: CircularProgressIndicator(color: c.primary)),
       error: (e, _) => Center(child: Text('$e')),
       data: (data) {
         final kuri = data.kuris.firstWhere(
@@ -930,26 +1011,27 @@ class _UpiBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: primaryLight.withOpacity(0.2),
+        color: c.primaryLight.withOpacity(0.2),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: primaryColor.withOpacity(0.3)),
+        border: Border.all(color: c.primary.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Pay To', style: TextStyle(color: textMuted, fontSize: 11)),
+          Text('Pay To', style: TextStyle(color: c.textMuted, fontSize: 11)),
           Row(
             children: [
               Text(
                 kuri.upiId!,
-                style: const TextStyle(
-                    color: textColor, fontSize: 15, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                    color: c.text, fontSize: 15, fontWeight: FontWeight.w600),
               ),
               IconButton(
-                icon: const Icon(Icons.copy, size: 16, color: textMuted),
+                icon: Icon(Icons.copy, size: 16, color: c.textMuted),
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: kuri.upiId!));
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -996,11 +1078,11 @@ class _UpiBanner extends StatelessWidget {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: bgColor,
+                      color: c.bg,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: borderColor),
+                      border: Border.all(color: c.border),
                     ),
-                    child: const Icon(Icons.qr_code, color: primaryColor),
+                    child: Icon(Icons.qr_code, color: c.primary),
                   ),
                 ),
               ],
@@ -1015,9 +1097,9 @@ class _UpiBanner extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: surfaceColor,
+        backgroundColor: ctx.colors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('QR Code', style: TextStyle(color: textColor)),
+        title: Text('QR Code', style: TextStyle(color: ctx.colors.text)),
         content: _buildQrImage(base64Data),
         actions: [
           TextButton(
@@ -1039,7 +1121,7 @@ class _UpiBanner extends StatelessWidget {
       }
       return Image.memory(bytes, height: 200, fit: BoxFit.contain);
     } catch (_) {
-      return const Icon(Icons.broken_image, color: textDim, size: 48);
+      return const Icon(Icons.broken_image, size: 48);
     }
   }
 }
@@ -1068,15 +1150,16 @@ class _MonthRow extends ConsumerStatefulWidget {
 class _MonthRowState extends ConsumerState<_MonthRow> {
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Opacity(
       opacity: widget.isLocked ? 0.5 : 1.0,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: surfaceColor,
+          color: c.surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: borderColor),
+          border: Border.all(color: c.border),
         ),
         child: Row(
           children: [
@@ -1086,34 +1169,34 @@ class _MonthRowState extends ConsumerState<_MonthRow> {
                 children: [
                   Text(
                     formatMonthKey(widget.month),
-                    style: const TextStyle(color: textColor, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: c.text, fontWeight: FontWeight.w500),
                   ),
                   if (widget.payment.id.isNotEmpty)
                     Text(
                       'Txn: ${widget.payment.transactionId}',
-                      style: const TextStyle(color: textMuted, fontSize: 11),
+                      style: TextStyle(color: c.textMuted, fontSize: 11),
                     ),
                   if (widget.payment.notes != null && widget.payment.notes!.isNotEmpty)
                     Text(
                       widget.payment.notes!,
-                      style: const TextStyle(color: dangerColor, fontSize: 11),
+                      style: TextStyle(color: c.danger, fontSize: 11),
                     ),
                 ],
               ),
             ),
             if (widget.isLocked)
-              const Row(
+              Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.lock, color: textDim, size: 14),
-                  SizedBox(width: 4),
-                  Text('Locked', style: TextStyle(color: textDim, fontSize: 12)),
+                  Icon(Icons.lock, color: c.textDim, size: 14),
+                  const SizedBox(width: 4),
+                  Text('Locked', style: TextStyle(color: c.textDim, fontSize: 12)),
                 ],
               )
             else if (widget.payment.id.isEmpty || widget.payment.status == 'rejected')
               ..._buildPayButton(context)
             else
-              _paymentStatusBadge(widget.payment.status),
+              _paymentStatusBadge(c, widget.payment.status),
           ],
         ),
       ),
@@ -1145,16 +1228,16 @@ class _MonthRowState extends ConsumerState<_MonthRow> {
     );
   }
 
-  Widget _paymentStatusBadge(String status) {
+  Widget _paymentStatusBadge(AppColors c, String status) {
     switch (status) {
       case 'approved':
-        return const StatusBadge(label: 'Confirmed', color: greenColor);
+        return StatusBadge(label: 'Confirmed', color: c.green);
       case 'submitted':
-        return const StatusBadge(label: 'Pending review', color: warnColor);
+        return StatusBadge(label: 'Pending review', color: c.warn);
       case 'rejected':
-        return const StatusBadge(label: 'Rejected', color: dangerColor);
+        return StatusBadge(label: 'Rejected', color: c.danger);
       default:
-        return const StatusBadge(label: 'Not submitted', color: textDim);
+        return StatusBadge(label: 'Not submitted', color: c.textDim);
     }
   }
 }
@@ -1243,6 +1326,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -1253,12 +1337,12 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
             children: [
               Text(
                 'Submit Payment — ${formatMonthKey(widget.month)}',
-                style: const TextStyle(
-                    color: textColor, fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    color: c.text, fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
               IconButton(
-                icon: const Icon(Icons.close, color: textMuted),
+                icon: Icon(Icons.close, color: c.textMuted),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -1267,18 +1351,18 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: bgColor,
+              color: c.bg,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: borderColor),
+              border: Border.all(color: c.border),
             ),
             child: Row(
               children: [
-                const Text('Amount:', style: TextStyle(color: textMuted, fontSize: 13)),
+                Text('Amount:', style: TextStyle(color: c.textMuted, fontSize: 13)),
                 const SizedBox(width: 8),
                 Text(
                   '₹${widget.kuri.contributionAmount.toInt()}',
-                  style: const TextStyle(
-                      color: primaryColor, fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: c.primary, fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -1286,7 +1370,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
           const SizedBox(height: 12),
           TextField(
             controller: _txnCtrl,
-            style: const TextStyle(color: textColor),
+            style: TextStyle(color: c.text),
             decoration: const InputDecoration(
               labelText: 'Transaction ID *',
               hintText: 'UPI transaction reference',
@@ -1295,8 +1379,8 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
           const SizedBox(height: 12),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              foregroundColor: _receiptBase64 != null ? greenColor : primaryColor,
-              side: BorderSide(color: _receiptBase64 != null ? greenColor : borderColor),
+              foregroundColor: _receiptBase64 != null ? c.green : c.primary,
+              side: BorderSide(color: _receiptBase64 != null ? c.green : c.border),
             ),
             onPressed: _pickReceipt,
             icon: Icon(_receiptBase64 != null ? Icons.check_circle : Icons.upload_file),
@@ -1306,17 +1390,17 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.image, color: greenColor, size: 16),
+                Icon(Icons.image, color: c.green, size: 16),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     _receiptFileName ?? 'Receipt uploaded',
-                    style: const TextStyle(color: greenColor, fontSize: 12),
+                    style: TextStyle(color: c.green, fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: textDim, size: 16),
+                  icon: Icon(Icons.close, color: c.textDim, size: 16),
                   onPressed: () => setState(() {
                     _receiptBase64 = null;
                     _receiptFileName = null;
@@ -1331,10 +1415,10 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
           ElevatedButton(
             onPressed: _loading ? null : _submit,
             child: _loading
-                ? const SizedBox(
+                ? SizedBox(
                     height: 20,
                     width: 20,
-                    child: CircularProgressIndicator(color: primaryFg, strokeWidth: 2),
+                    child: CircularProgressIndicator(color: c.primaryFg, strokeWidth: 2),
                   )
                 : const Text('Submit Payment'),
           ),

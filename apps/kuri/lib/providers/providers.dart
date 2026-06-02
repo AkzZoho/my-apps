@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models.dart';
 import '../services/data_service.dart';
+import '../l10n.dart';
 
 // ─── Theme Mode ─────────────────────────────────────────────────────────────
 
@@ -144,3 +145,34 @@ final lastSeenProvider = StateNotifierProvider<LastSeenNotifier, Map<String, Dat
 // ─── Active Committee Index ─────────────────────────────────────────────────
 
 final activeCommitteeIndexProvider = StateProvider<int>((ref) => 0);
+
+// ─── Locale ─────────────────────────────────────────────────────────────────
+
+class LocaleNotifier extends StateNotifier<AppLocale> {
+  LocaleNotifier() : super(AppLocale.english);
+
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final val = prefs.getString('app_locale') ?? 'en';
+    state = val == 'ml' ? AppLocale.malayalam : AppLocale.english;
+  }
+
+  Future<void> setLocale(AppLocale locale) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('app_locale', locale == AppLocale.malayalam ? 'ml' : 'en');
+    state = locale;
+  }
+
+  void toggle() {
+    setLocale(state == AppLocale.malayalam ? AppLocale.english : AppLocale.malayalam);
+  }
+}
+
+final localeProvider = StateNotifierProvider<LocaleNotifier, AppLocale>(
+  (ref) => LocaleNotifier(),
+);
+
+// BuildContext extension for l10n
+extension L10nX on WidgetRef {
+  AppL10n get l10n => AppL10n(read(localeProvider));
+}
