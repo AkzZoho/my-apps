@@ -5,6 +5,7 @@ import '../l10n.dart';
 import '../models.dart';
 import '../providers/providers.dart';
 import '../widgets/common.dart';
+import '../widgets/ios_install_banner.dart';
 import 'kuri_detail_screen.dart';
 import 'create_kuri_screen.dart';
 
@@ -126,8 +127,11 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
               ),
             ],
           ),
-          body: myKuris.isEmpty
-              ? const EmptyState(
+          body: Column(
+            children: [
+              Expanded(
+                child: myKuris.isEmpty
+                    ? const EmptyState(
                   icon: Icons.currency_rupee,
                   title: 'No Kuris yet',
                   subtitle: 'Create your first savings plan',
@@ -205,6 +209,10 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
                     },
                   ),
                 ),
+              ),
+              const IosInstallBanner(),
+            ],
+          ),
           floatingActionButton: FloatingActionButton(
             onPressed: () => Navigator.push(
               context,

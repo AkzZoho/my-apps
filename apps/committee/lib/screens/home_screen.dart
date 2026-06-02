@@ -6,6 +6,7 @@ import '../models.dart';
 import '../providers/providers.dart';
 import '../services/data_service.dart';
 import '../widgets/common.dart';
+import '../widgets/ios_install_banner.dart';
 import 'committee_detail_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -155,20 +156,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ],
           ),
-          body: myGroups.isEmpty
-              ? _NoCommitteesView(
-                  user: user,
-                  data: data,
-                  pendingInvitations: pendingInvitations,
-                )
-              : _CommitteeBody(
-                  myGroups: myGroups,
-                  activeIdx: safeIdx,
-                  data: data,
-                  user: user,
-                  lastSeen: lastSeen,
-                  pendingInvitations: pendingInvitations,
-                ),
+          body: Column(
+            children: [
+              Expanded(
+                child: myGroups.isEmpty
+                    ? _NoCommitteesView(
+                        user: user,
+                        data: data,
+                        pendingInvitations: pendingInvitations,
+                      )
+                    : _CommitteeBody(
+                        myGroups: myGroups,
+                        activeIdx: safeIdx,
+                        data: data,
+                        user: user,
+                        lastSeen: lastSeen,
+                        pendingInvitations: pendingInvitations,
+                      ),
+              ),
+              const IosInstallBanner(),
+            ],
+          ),
           floatingActionButton: myGroups.isNotEmpty
               ? Column(
                   mainAxisSize: MainAxisSize.min,
