@@ -1415,10 +1415,6 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
 
   Future<void> _submit() async {
     final txnId = _txnCtrl.text.trim();
-    if (txnId.isEmpty) {
-      showError(context, 'Transaction ID is required.');
-      return;
-    }
     if (_receiptBase64 == null) {
       showError(context, 'Receipt image is required.');
       return;
@@ -1496,7 +1492,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
             controller: _txnCtrl,
             style: TextStyle(color: c.text),
             decoration: const InputDecoration(
-              labelText: 'Transaction ID *',
+              labelText: 'Transaction ID (optional)',
               hintText: 'UPI transaction reference',
             ),
           ),
