@@ -1,4 +1,6 @@
 import 'dart:convert';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +12,125 @@ import '../models.dart';
 import '../providers/providers.dart';
 import '../services/data_service.dart';
 import '../widgets/common.dart';
+
+// ─── Receipt viewer helpers ───────────────────────────────────────────────────
+
+Uint8List? _decodeBase64Bytes(String base64Data) {
+  try {
+    final data = base64Data.contains(',') ? base64Data.split(',').last : base64Data;
+    return base64Decode(data);
+  } catch (_) {
+    return null;
+  }
+}
+
+void _openReceiptViewer(BuildContext context, Uint8List bytes, String filename) {
+  showDialog(
+    context: context,
+    barrierColor: Colors.black87,
+    barrierDismissible: true,
+    builder: (_) => _ReceiptViewerDialog(bytes: bytes, filename: filename),
+  );
+}
+
+Widget _receiptThumbnail(
+  BuildContext context,
+  String base64Data, {
+  bool fullWidth = false,
+  String filename = 'receipt.jpg',
+}) {
+  final bytes = _decodeBase64Bytes(base64Data);
+  if (bytes == null) {
+    return Icon(Icons.broken_image, color: context.colors.textDim);
+  }
+  return GestureDetector(
+    onTap: () => _openReceiptViewer(context, bytes, filename),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: Stack(
+        alignment: Alignment.bottomRight,
+        children: [
+          Image.memory(
+            bytes,
+            width: fullWidth ? double.infinity : 80,
+            height: fullWidth ? null : 64,
+            fit: fullWidth ? BoxFit.contain : BoxFit.cover,
+          ),
+          Container(
+            margin: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Icon(Icons.zoom_in, color: Colors.white, size: 14),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ReceiptViewerDialog extends StatelessWidget {
+  final Uint8List bytes;
+  final String filename;
+
+  const _ReceiptViewerDialog({required this.bytes, required this.filename});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black,
+      child: SafeArea(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 5.0,
+              child: Center(child: Image.memory(bytes, fit: BoxFit.contain)),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                color: Colors.black54,
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.download, color: Colors.white),
+                      tooltip: 'Download',
+                      onPressed: _download,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _download() {
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    html.AnchorElement()
+      ..href = url
+      ..setAttribute('download', filename)
+      ..click();
+    html.Url.revokeObjectUrl(url);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class KuriDetailScreen extends ConsumerStatefulWidget {
   final String kuriId;
@@ -602,15 +723,15 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
                                   _paymentStatusBadge(c, payment.status),
                                 ],
                               ),
-                              // Receipt thumbnail (approved with receipt)
+                              // Receipt thumbnail — tappable for full view + download
                               if (payment.id.isNotEmpty &&
-                                  payment.status == 'approved' &&
                                   payment.receiptBase64 != null &&
                                   payment.receiptBase64!.isNotEmpty) ...[
                                 const SizedBox(height: 8),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: _buildReceiptImage(payment.receiptBase64!),
+                                _receiptThumbnail(
+                                  context,
+                                  payment.receiptBase64!,
+                                  filename: 'receipt_${payment.month}.jpg',
                                 ),
                               ],
                               // Review button
@@ -637,10 +758,11 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
                                 const SizedBox(height: 8),
                                 if (payment.receiptBase64 != null &&
                                     payment.receiptBase64!.isNotEmpty) ...[
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: _buildReceiptImage(payment.receiptBase64!,
-                                        fullWidth: true),
+                                  _receiptThumbnail(
+                                    context,
+                                    payment.receiptBase64!,
+                                    fullWidth: true,
+                                    filename: 'receipt_${payment.month}.jpg',
                                   ),
                                   const SizedBox(height: 8),
                                 ],
@@ -724,24 +846,6 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
     }
   }
 
-  Widget _buildReceiptImage(String base64Data, {bool fullWidth = false}) {
-    try {
-      Uint8List bytes;
-      if (base64Data.contains(',')) {
-        bytes = base64Decode(base64Data.split(',').last);
-      } else {
-        bytes = base64Decode(base64Data);
-      }
-      return Image.memory(
-        bytes,
-        width: fullWidth ? double.infinity : 80,
-        height: fullWidth ? null : 60,
-        fit: fullWidth ? BoxFit.contain : BoxFit.cover,
-      );
-    } catch (_) {
-      return Icon(Icons.broken_image, color: context.colors.textDim);
-    }
-  }
 }
 
 // ─── Settings Screen (full screen, extracted from _SettingsTab) ───────────────
@@ -1161,42 +1265,62 @@ class _MonthRowState extends ConsumerState<_MonthRow> {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: c.border),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    formatMonthKey(widget.month),
-                    style: TextStyle(color: c.text, fontWeight: FontWeight.w500),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        formatMonthKey(widget.month),
+                        style: TextStyle(color: c.text, fontWeight: FontWeight.w500),
+                      ),
+                      if (widget.payment.id.isNotEmpty)
+                        Text(
+                          'Txn: ${widget.payment.transactionId}',
+                          style: TextStyle(color: c.textMuted, fontSize: 11),
+                        ),
+                      if (widget.payment.notes != null &&
+                          widget.payment.notes!.isNotEmpty)
+                        Text(
+                          widget.payment.notes!,
+                          style: TextStyle(color: c.danger, fontSize: 11),
+                        ),
+                    ],
                   ),
-                  if (widget.payment.id.isNotEmpty)
-                    Text(
-                      'Txn: ${widget.payment.transactionId}',
-                      style: TextStyle(color: c.textMuted, fontSize: 11),
-                    ),
-                  if (widget.payment.notes != null && widget.payment.notes!.isNotEmpty)
-                    Text(
-                      widget.payment.notes!,
-                      style: TextStyle(color: c.danger, fontSize: 11),
-                    ),
-                ],
-              ),
+                ),
+                if (widget.isLocked)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.lock, color: c.textDim, size: 14),
+                      const SizedBox(width: 4),
+                      Text('Locked', style: TextStyle(color: c.textDim, fontSize: 12)),
+                    ],
+                  )
+                else if (widget.payment.id.isEmpty ||
+                    widget.payment.status == 'rejected')
+                  ..._buildPayButton(context)
+                else
+                  _paymentStatusBadge(c, widget.payment.status),
+              ],
             ),
-            if (widget.isLocked)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.lock, color: c.textDim, size: 14),
-                  const SizedBox(width: 4),
-                  Text('Locked', style: TextStyle(color: c.textDim, fontSize: 12)),
-                ],
-              )
-            else if (widget.payment.id.isEmpty || widget.payment.status == 'rejected')
-              ..._buildPayButton(context)
-            else
-              _paymentStatusBadge(c, widget.payment.status),
+            // Receipt thumbnail — visible to the submitter
+            if (widget.payment.id.isNotEmpty &&
+                widget.payment.receiptBase64 != null &&
+                widget.payment.receiptBase64!.isNotEmpty &&
+                (widget.payment.status == 'submitted' ||
+                    widget.payment.status == 'approved')) ...[
+              const SizedBox(height: 8),
+              _receiptThumbnail(
+                context,
+                widget.payment.receiptBase64!,
+                filename: 'receipt_${widget.payment.month}.jpg',
+              ),
+            ],
           ],
         ),
       ),
