@@ -14,7 +14,6 @@ class AuthService {
   AuthService._();
 
   static final _google = GoogleSignIn(
-    clientId: _kGoogleClientId,
     scopes: ['email', 'profile'],
   );
 
