@@ -1,6 +1,6 @@
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../src/html_stub.dart' if (dart.library.html) 'dart:html' as html;
 import '../theme.dart';
 
 class IosInstallBanner extends StatefulWidget {
@@ -15,6 +15,7 @@ class _IosInstallBannerState extends State<IosInstallBanner> {
 
   bool get _shouldShow {
     if (_dismissed) return false;
+    if (!kIsWeb) return false;
     try {
       final ua = html.window.navigator.userAgent.toLowerCase();
       final isIos = ua.contains('iphone') ||

@@ -1,6 +1,6 @@
 import 'dart:convert';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'package:flutter/foundation.dart';
+import '../src/html_stub.dart' if (dart.library.html) 'dart:html' as html;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -105,11 +105,12 @@ class _ReceiptViewerDialog extends ConsumerWidget {
                       onPressed: () => Navigator.pop(context),
                     ),
                     const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.download, color: Colors.white),
-                      tooltip: 'Download',
-                      onPressed: _download,
-                    ),
+                    if (kIsWeb)
+                      IconButton(
+                        icon: const Icon(Icons.download, color: Colors.white),
+                        tooltip: 'Download',
+                        onPressed: _download,
+                      ),
                   ],
                 ),
               ),

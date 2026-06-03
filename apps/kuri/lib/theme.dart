@@ -218,7 +218,7 @@ ThemeData _buildTheme(Brightness brightness, AppColors c) {
       type: BottomNavigationBarType.fixed,
       elevation: 0,
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: c.surface,
       shape: RoundedRectangleBorder(
         borderRadius: const BorderRadius.all(Radius.circular(12)),
@@ -281,7 +281,7 @@ ThemeData _buildTheme(Brightness brightness, AppColors c) {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     ),
-    tabBarTheme: TabBarTheme(
+    tabBarTheme: TabBarThemeData(
       labelColor: c.primary,
       unselectedLabelColor: c.textMuted,
       indicatorColor: c.primary,
@@ -308,7 +308,7 @@ ThemeData _buildTheme(Brightness brightness, AppColors c) {
       labelLarge: TextStyle(color: c.primary, fontSize: 15, fontWeight: FontWeight.w600),
       headlineMedium: TextStyle(color: c.text, fontSize: 24, fontWeight: FontWeight.bold),
     ),
-    dialogTheme: DialogTheme(
+    dialogTheme: DialogThemeData(
       backgroundColor: c.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       titleTextStyle: TextStyle(color: c.text, fontSize: 18, fontWeight: FontWeight.w700),
