@@ -121,6 +121,11 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
       return;
     }
 
+    if (upiId.isEmpty) {
+      showError(context, _l10n!.upiIdRequired);
+      return;
+    }
+
     setState(() => _loading = true);
     try {
       final participantIds = _selectedParticipants.map((p) => p.id).toList();
@@ -221,7 +226,7 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                   controller: _upiCtrl,
                   style: TextStyle(color: c.text),
                   decoration: InputDecoration(
-                    labelText: '${l10n.upiId} ${l10n.optional}',
+                    labelText: '${l10n.upiId} *',
                     hintText: 'name@upi',
                   ),
                 ),
