@@ -194,12 +194,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 top: 8, right: 16,
                 child: IconButton(
                   icon: Icon(
-                    themeMode == ThemeMode.dark
-                        ? Icons.light_mode_rounded
-                        : Icons.dark_mode_rounded,
+                    () {
+                      final isDark = themeMode == ThemeMode.dark ||
+                          (themeMode == ThemeMode.system &&
+                              MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+                      return isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded;
+                    }(),
                     color: c.textMuted,
                   ),
-                  onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
+                  onPressed: () => ref.read(themeModeProvider.notifier).toggle(MediaQuery.platformBrightnessOf(context)),
                   tooltip: l10n.toggleTheme,
                 ),
               ),
