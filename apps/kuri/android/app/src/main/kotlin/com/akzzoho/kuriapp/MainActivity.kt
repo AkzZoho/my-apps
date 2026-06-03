@@ -1,4 +1,4 @@
-package com.akzzoho.kuri_app
+package com.akzzoho.kuriapp
 
 import io.flutter.embedding.android.FlutterActivity
 
