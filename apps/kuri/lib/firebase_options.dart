@@ -28,7 +28,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAozpBL9WdENY1fo7XBws-4d_n9H-417x8',
-    appId: '1:638627598431:web:c1201144f3399be0544bea',
+    appId: '1:638627598431:android:23adb9498a474900544bea',
     messagingSenderId: '638627598431',
     projectId: 'projectkuri-c284d',
     databaseURL: 'https://projectkuri-c284d-default-rtdb.asia-southeast1.firebasedatabase.app',
