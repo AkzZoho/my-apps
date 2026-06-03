@@ -9,9 +9,9 @@ import 'providers/providers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (Firebase.apps.isEmpty) {
+  try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  }
+  } catch (_) {}
   runApp(const ProviderScope(child: KuriApp()));
 }
 
