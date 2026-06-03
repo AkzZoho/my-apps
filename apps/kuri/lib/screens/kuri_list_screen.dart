@@ -86,10 +86,14 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
                 tooltip: l10n.switchLanguage,
               ),
               IconButton(
-                icon: Icon(ref.watch(themeModeProvider) == ThemeMode.dark
-                    ? Icons.light_mode_rounded
-                    : Icons.dark_mode_rounded),
-                onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
+                icon: Icon(() {
+                  final mode = ref.watch(themeModeProvider);
+                  final isDark = mode == ThemeMode.dark ||
+                      (mode == ThemeMode.system &&
+                          MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+                  return isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded;
+                }()),
+                onPressed: () => ref.read(themeModeProvider.notifier).toggle(MediaQuery.platformBrightnessOf(context)),
                 tooltip: l10n.toggleTheme,
               ),
               Stack(

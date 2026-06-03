@@ -22,12 +22,10 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
     state = mode;
   }
 
-  void toggle() {
-    if (state == ThemeMode.dark) {
-      setMode(ThemeMode.light);
-    } else {
-      setMode(ThemeMode.dark);
-    }
+  void toggle(Brightness platformBrightness) {
+    final isDark = state == ThemeMode.dark ||
+        (state == ThemeMode.system && platformBrightness == Brightness.dark);
+    setMode(isDark ? ThemeMode.light : ThemeMode.dark);
   }
 }
 
