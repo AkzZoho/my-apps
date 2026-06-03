@@ -181,143 +181,136 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
     final user = ref.watch(currentUserProvider);
     final appDataAsync = ref.watch(appDataProvider);
 
-    return appDataAsync.when(
-      loading: () => Scaffold(
+    // Use cached data so the screen never flashes a loading state during
+    // navigation transitions (swipe-back gesture renders both screens per frame).
+    final data = appDataAsync.valueOrNull;
+
+    if (data == null) {
+      return Scaffold(
         backgroundColor: c.bg,
-        appBar: AppBar(title: Text(l10n.loading)),
-        body: Center(child: CircularProgressIndicator(color: c.primary)),
+        appBar: AppBar(title: Text(appDataAsync.hasError ? l10n.error : l10n.loading)),
+        body: appDataAsync.hasError
+            ? Center(child: Text('${appDataAsync.error}', style: TextStyle(color: c.danger)))
+            : Center(child: CircularProgressIndicator(color: c.primary)),
+      );
+    }
+
+    final kuri = data.kuris.firstWhere(
+      (k) => k.id == widget.kuriId,
+      orElse: () => KuriPlan(
+        id: '',
+        name: l10n.kuriNotFound,
+        contributionAmount: 0,
+        currency: 'INR',
+        startDate: '',
+        participantUserIds: [],
+        notificationConfig: NotificationConfig(rules: []),
+        createdBy: '',
+        createdAt: '',
       ),
-      error: (e, _) => Scaffold(
+    );
+
+    if (kuri.id.isEmpty) {
+      return Scaffold(
         backgroundColor: c.bg,
-        appBar: AppBar(title: Text(l10n.error)),
-        body: Center(child: Text('$e', style: TextStyle(color: c.danger))),
-      ),
-      data: (data) {
-        final kuri = data.kuris.firstWhere(
-          (k) => k.id == widget.kuriId,
-          orElse: () => KuriPlan(
-            id: '',
-            name: l10n.kuriNotFound,
-            contributionAmount: 0,
-            currency: 'INR',
-            startDate: '',
-            participantUserIds: [],
-            notificationConfig: NotificationConfig(rules: []),
-            createdBy: '',
-            createdAt: '',
-          ),
-        );
+        appBar: AppBar(title: Text(l10n.appName)),
+        body: Center(child: Text(l10n.kuriNotFound, style: TextStyle(color: c.textMuted))),
+      );
+    }
 
-        if (kuri.id.isEmpty) {
-          return Scaffold(
-            backgroundColor: c.bg,
-            appBar: AppBar(title: Text(l10n.appName)),
-            body: Center(
-                child: Text(l10n.kuriNotFound, style: TextStyle(color: c.textMuted))),
-          );
-        }
+    final isCreator = user?.id == kuri.createdBy;
+    final kuriPayments = data.payments.where((p) => p.kuriId == kuri.id).toList();
+    final approvedPayments = kuriPayments.where((p) => p.status == 'approved').toList();
+    final totalCollected = approvedPayments.fold<double>(0, (s, p) => s + p.amount);
 
-        final isCreator = user?.id == kuri.createdBy;
-        final kuriPayments = data.payments.where((p) => p.kuriId == kuri.id).toList();
-        final approvedPayments = kuriPayments.where((p) => p.status == 'approved').toList();
-        final totalCollected = approvedPayments.fold<double>(0, (s, p) => s + p.amount);
-
-        return LoadingOverlay(
-          loading: _loading,
-          child: Scaffold(
-            backgroundColor: c.bg,
-            appBar: AppBar(
-              title: Text(kuri.name),
-              actions: [
-                if (isCreator)
-                  IconButton(
-                    icon: Icon(Icons.delete_outline, color: c.danger),
-                    onPressed: () => _deleteKuri(kuri),
-                    tooltip: l10n.deleteKuri,
-                  ),
-              ],
-            ),
-            body: isCreator
-                ? SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Header card
-                        _KuriHeader(kuri: kuri, totalCollected: totalCollected, l10n: l10n),
-                        // Totals panel
-                        _TotalsPanel(
-                          kuri: kuri,
-                          payments: kuriPayments,
-                          data: data,
-                          isCreator: true,
-                          currentUserId: user?.id ?? '',
-                          l10n: l10n,
-                        ),
-                        // Navigation tiles for creator
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Column(
-                            children: [
-                              _NavTile(
-                                icon: Icons.receipt_long_outlined,
-                                label: l10n.receipts,
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => KuriReceiptsScreen(
-                                      kuri: kuri,
-                                      currentUserId: user?.id ?? '',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              _NavTile(
-                                icon: Icons.settings_outlined,
-                                label: l10n.settings,
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => KuriSettingsScreen(
-                                      kuri: kuri,
-                                      currentUserId: user?.id ?? '',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                            ],
-                          ),
-                        ),
-                      ],
+    return LoadingOverlay(
+      loading: _loading,
+      child: Scaffold(
+        backgroundColor: c.bg,
+        appBar: AppBar(
+          title: Text(kuri.name),
+          actions: [
+            if (isCreator)
+              IconButton(
+                icon: Icon(Icons.delete_outline, color: c.danger),
+                onPressed: () => _deleteKuri(kuri),
+                tooltip: l10n.deleteKuri,
+              ),
+          ],
+        ),
+        body: isCreator
+            ? SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _KuriHeader(kuri: kuri, totalCollected: totalCollected, l10n: l10n),
+                    _TotalsPanel(
+                      kuri: kuri,
+                      payments: kuriPayments,
+                      data: data,
+                      isCreator: true,
+                      currentUserId: user?.id ?? '',
+                      l10n: l10n,
                     ),
-                  )
-                : Column(
-                    children: [
-                      // Header card
-                      _KuriHeader(kuri: kuri, totalCollected: totalCollected, l10n: l10n),
-                      // Totals panel
-                      _TotalsPanel(
-                        kuri: kuri,
-                        payments: kuriPayments,
-                        data: data,
-                        isCreator: false,
-                        currentUserId: user?.id ?? '',
-                        l10n: l10n,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Column(
+                        children: [
+                          _NavTile(
+                            icon: Icons.receipt_long_outlined,
+                            label: l10n.receipts,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => KuriReceiptsScreen(
+                                  kuri: kuri,
+                                  currentUserId: user?.id ?? '',
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _NavTile(
+                            icon: Icons.settings_outlined,
+                            label: l10n.settings,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => KuriSettingsScreen(
+                                  kuri: kuri,
+                                  currentUserId: user?.id ?? '',
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                       ),
-                      // Member payment view
-                      Expanded(
-                        child: _MemberPaymentView(
-                          kuri: kuri,
-                          data: data,
-                          currentUserId: user?.id ?? '',
-                        ),
-                      ),
-                    ],
+                    ),
+                  ],
+                ),
+              )
+            : Column(
+                children: [
+                  _KuriHeader(kuri: kuri, totalCollected: totalCollected, l10n: l10n),
+                  _TotalsPanel(
+                    kuri: kuri,
+                    payments: kuriPayments,
+                    data: data,
+                    isCreator: false,
+                    currentUserId: user?.id ?? '',
+                    l10n: l10n,
                   ),
-          ),
-        );
-      },
+                  Expanded(
+                    child: _MemberPaymentView(
+                      kuri: kuri,
+                      data: data,
+                      currentUserId: user?.id ?? '',
+                    ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 }
@@ -596,13 +589,16 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
     _l10n = l10n;
     final appDataAsync = ref.watch(appDataProvider);
 
+    final data = appDataAsync.valueOrNull;
+
     return Scaffold(
       backgroundColor: c.bg,
       appBar: AppBar(title: Text(l10n.receipts)),
-      body: appDataAsync.when(
-        loading: () => Center(child: CircularProgressIndicator(color: c.primary)),
-        error: (e, _) => Center(child: Text('$e')),
-        data: (data) {
+      body: data == null
+          ? Center(child: appDataAsync.hasError
+              ? Text('${appDataAsync.error}')
+              : CircularProgressIndicator(color: c.primary))
+          : Builder(builder: (context) {
           final months = generateMonths(widget.kuri.startDate, includeFuture: false);
           final payments = data.payments.where((p) => p.kuriId == widget.kuri.id).toList();
 
@@ -837,8 +833,7 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
               );
             }).toList(),
           );
-        },
-      ),
+        }),
     );
   }
 
@@ -950,7 +945,7 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
               controller: _upiCtrl,
               style: TextStyle(color: c.text),
               decoration: InputDecoration(
-                labelText: '${l10n.upiId} ${l10n.optional}',
+                labelText: '${l10n.upiId} *',
                 hintText: 'name@upi',
               ),
             ),
@@ -1042,10 +1037,13 @@ class _MemberPaymentViewState extends ConsumerState<_MemberPaymentView> {
     final appDataAsync = ref.watch(appDataProvider);
     final c = context.colors;
     final l10n = AppL10n(ref.watch(localeProvider));
-    return appDataAsync.when(
-      loading: () => Center(child: CircularProgressIndicator(color: c.primary)),
-      error: (e, _) => Center(child: Text('$e')),
-      data: (data) {
+    final data = appDataAsync.valueOrNull;
+    if (data == null) {
+      return Center(child: appDataAsync.hasError
+          ? Text('${appDataAsync.error}')
+          : CircularProgressIndicator(color: c.primary));
+    }
+    {
         final kuri = data.kuris.firstWhere(
           (k) => k.id == widget.kuri.id,
           orElse: () => widget.kuri,
@@ -1114,8 +1112,7 @@ class _MemberPaymentViewState extends ConsumerState<_MemberPaymentView> {
             }),
           ],
         );
-      },
-    );
+    }
   }
 }
 
