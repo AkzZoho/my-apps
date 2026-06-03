@@ -11,7 +11,7 @@ class AppL10n {
   static const _en = {
     // App identity
     'appName': 'Kuri',
-    'appSubtitle': 'Track your savings plans',
+    'appSubtitle': 'Track your Kuris',
     // Auth
     'logIn': 'Log In',
     'login': 'Login',
@@ -46,7 +46,7 @@ class AppL10n {
     'switchLanguage': 'Switch language',
     'toggleTheme': 'Toggle theme',
     'noKurisYet': 'No Kuris yet',
-    'createFirstPlan': 'Create your first savings plan',
+    'createFirstPlan': 'Create your first Kuri',
     'notifications': 'Notifications',
     'noNotifications': 'No notifications',
     'allCaughtUp': 'You are all caught up!',
@@ -136,7 +136,7 @@ class AppL10n {
   static const _ml = {
     // App identity
     'appName': 'കുറി',
-    'appSubtitle': 'നിങ്ങളുടെ സേവിംഗ്സ് പ്ലാനുകൾ ട്രാക്ക് ചെയ്യൂ',
+    'appSubtitle': 'നിങ്ങളുടെ കുറികൾ ട്രാക്ക് ചെയ്യൂ',
     // Auth
     'logIn': 'ലോഗിൻ',
     'login': 'ലോഗിൻ',
@@ -171,7 +171,7 @@ class AppL10n {
     'switchLanguage': 'ഭാഷ മാറ്റൂ',
     'toggleTheme': 'തീം മാറ്റൂ',
     'noKurisYet': 'ഇതുവരെ കുറികൾ ഇല്ല',
-    'createFirstPlan': 'നിങ്ങളുടെ ആദ്യ സേവിംഗ്സ് പ്ലാൻ ഉണ്ടാക്കൂ',
+    'createFirstPlan': 'നിങ്ങളുടെ ആദ്യ കുറി ഉണ്ടാക്കൂ',
     'notifications': 'അറിയിപ്പുകൾ',
     'noNotifications': 'അറിയിപ്പുകൾ ഇല്ല',
     'allCaughtUp': 'എല്ലാം കൃത്യമാണ്!',

@@ -43,7 +43,7 @@ class _KuriAppState extends ConsumerState<KuriApp> {
       themeMode: themeMode,
       debugShowCheckedModeBanner: false,
       home: user == null
-          ? const AuthScreen(appName: 'Kuri', appSubtitle: 'Track your savings plans')
+          ? const AuthScreen(appName: 'Kuri', appSubtitle: 'Track your Kuris')
           : const KuriListScreen(),
     );
   }
