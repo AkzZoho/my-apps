@@ -245,14 +245,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Center(
-          child: Container(
-            width: 80, height: 80,
-            decoration: BoxDecoration(
-              color: c.primaryLight,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(Icons.savings_rounded, color: c.primary, size: 42),
-          ),
+          child: Image.asset('assets/kuri_icon.png', width: 80, height: 80),
         ),
         const SizedBox(height: 20),
         Text(
