@@ -83,7 +83,7 @@ class AuthService {
 
   // ── Kuri invite email ──────────────────────────────────────────────────────
 
-  static const _kAppUrl = 'https://akzzoho.github.io/my-apps/kuri/';
+  static const _kAppUrl = 'https://akzzoho.github.io/my-apps/kuri/?invite=1';
 
   static Future<void> sendKuriInviteEmail({
     required String to,

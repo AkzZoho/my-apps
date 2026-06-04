@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
@@ -26,8 +27,8 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
   }
 
   Future<void> _init() async {
-    // Only load if no cached data — avoids resetting to loading state on remount (web back gesture)
-    if (ref.read(appDataProvider).valueOrNull == null) {
+    final openedViaInvite = kIsWeb && Uri.base.queryParameters.containsKey('invite');
+    if (ref.read(appDataProvider).valueOrNull == null || openedViaInvite) {
       await ref.read(appDataProvider.notifier).load();
     }
     final data = ref.read(appDataProvider).valueOrNull;
