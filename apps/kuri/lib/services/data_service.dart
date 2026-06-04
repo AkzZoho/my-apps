@@ -289,6 +289,25 @@ class DataService {
     return kuri;
   }
 
+  Future<KuriPlan> updateKuriParticipants(
+    String kuriId,
+    String actorId,
+    List<String> participantIds,
+  ) async {
+    final data = await getData();
+    final idx = data.kuris.indexWhere((k) => k.id == kuriId);
+    if (idx < 0) throw Exception('Kuri plan not found.');
+    final kuri = data.kuris[idx];
+    if (kuri.createdBy != actorId) throw Exception('Only the creator can manage participants.');
+    final unique = participantIds.toSet().toList();
+    if (!unique.contains(actorId)) unique.add(actorId);
+    final updated = kuri.copyWith(participantUserIds: unique);
+    final updatedKuris = List<KuriPlan>.from(data.kuris);
+    updatedKuris[idx] = updated;
+    await saveData(data.copyWith(kuris: updatedKuris));
+    return updated;
+  }
+
   Future<void> deleteKuri(String kuriId, String actorId) async {
     final data = await getData();
     final kuri = data.kuris.firstWhere(

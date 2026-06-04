@@ -100,6 +100,12 @@ class AppL10n {
     'removeQr': 'Remove QR Code',
     'saveSettings': 'Save Settings',
     'optional': '(optional)',
+    'manageParticipants': 'MANAGE PARTICIPANTS',
+    'remove': 'Remove',
+    'participantAdded': 'Participant added.',
+    'participantRemoved': 'Participant removed.',
+    'cannotRemoveCreator': 'Cannot remove the creator.',
+    'enterEmailToAdd': 'Enter email to add',
     // Create Kuri
     'participants_cap': 'Participants',
     'planName': 'Plan Name',
@@ -225,6 +231,12 @@ class AppL10n {
     'removeQr': 'QR കോഡ് നീക്കൂ',
     'saveSettings': 'ക്രമീകരണങ്ങൾ സൂക്ഷിക്കൂ',
     'optional': '(ഐച്ഛികം)',
+    'manageParticipants': 'അംഗങ്ങളെ നിയന്ത്രിക്കൂ',
+    'remove': 'നീക്കൂ',
+    'participantAdded': 'അംഗം ചേർക്കപ്പെട്ടു.',
+    'participantRemoved': 'അംഗം നീക്കപ്പെട്ടു.',
+    'cannotRemoveCreator': 'സ്ഥാപകനെ നീക്കാൻ കഴിയില്ല.',
+    'enterEmailToAdd': 'ചേർക്കാൻ ഇമെയിൽ നൽകൂ',
     // Create Kuri
     'participants_cap': 'അംഗങ്ങൾ',
     'planName': 'പ്ലാൻ പേര്',
@@ -361,6 +373,12 @@ class AppL10n {
   String get paymentSummary     => _t('paymentSummary');
   String get createKuri         => _t('createKuri');
   String get addParticipant     => _t('addParticipant');
+  String get manageParticipants => _t('manageParticipants');
+  String get remove             => _t('remove');
+  String get participantAdded   => _t('participantAdded');
+  String get participantRemoved => _t('participantRemoved');
+  String get cannotRemoveCreator=> _t('cannotRemoveCreator');
+  String get enterEmailToAdd    => _t('enterEmailToAdd');
   String get submit             => _t('submit');
   String get cancel             => _t('cancel');
   String get review             => _t('review');

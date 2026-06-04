@@ -26,8 +26,10 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
   }
 
   Future<void> _init() async {
-    final notifier = ref.read(appDataProvider.notifier);
-    await notifier.load();
+    // Only load if no cached data — avoids resetting to loading state on remount (web back gesture)
+    if (ref.read(appDataProvider).valueOrNull == null) {
+      await ref.read(appDataProvider.notifier).load();
+    }
     final data = ref.read(appDataProvider).valueOrNull;
     if (data != null) {
       await ref.read(currentUserProvider.notifier).loadFromPrefs(data);
@@ -51,16 +53,19 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
       );
     }
 
-    return appDataAsync.when(
-      loading: () => Scaffold(
+    // Use cached data to avoid loading flash during back-gesture navigation (web + native)
+    final data = appDataAsync.valueOrNull;
+    if (data == null) {
+      return Scaffold(
         backgroundColor: c.bg,
-        body: Center(child: CircularProgressIndicator(color: c.primary)),
-      ),
-      error: (e, _) => Scaffold(
-        backgroundColor: c.bg,
-        body: Center(child: Text('${l10n.error}: $e', style: TextStyle(color: c.danger))),
-      ),
-      data: (data) {
+        body: Center(
+          child: appDataAsync.hasError
+              ? Text('${l10n.error}: ${appDataAsync.error}', style: TextStyle(color: c.danger))
+              : CircularProgressIndicator(color: c.primary),
+        ),
+      );
+    }
+    {
         if (user == null) return Scaffold(backgroundColor: c.bg, body: const SizedBox());
 
         final myKuris = data.kuris
@@ -225,8 +230,7 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
             child: const Icon(Icons.add),
           ),
         );
-      },
-    );
+    }
   }
 
   void _showNotificationsSheet(BuildContext context, AppData data, AppUser user) {

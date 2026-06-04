@@ -867,22 +867,83 @@ class KuriSettingsScreen extends ConsumerStatefulWidget {
 
 class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
   late TextEditingController _upiCtrl;
+  late TextEditingController _addEmailCtrl;
   String? _qrBase64;
   String? _qrFileName;
   bool _saving = false;
+  bool _addingParticipant = false;
   AppL10n? _l10n;
 
   @override
   void initState() {
     super.initState();
     _upiCtrl = TextEditingController(text: widget.kuri.upiId ?? '');
+    _addEmailCtrl = TextEditingController();
     _qrBase64 = widget.kuri.upiQrBase64;
   }
 
   @override
   void dispose() {
     _upiCtrl.dispose();
+    _addEmailCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _addParticipant() async {
+    final email = _addEmailCtrl.text.trim().toLowerCase();
+    if (email.isEmpty) return;
+    setState(() => _addingParticipant = true);
+    try {
+      final appData = ref.read(appDataProvider).valueOrNull;
+      if (appData == null) return;
+      final user = appData.users.firstWhere(
+        (u) => u.email.trim().toLowerCase() == email,
+        orElse: () => AppUser(id: '', name: '', email: ''),
+      );
+      if (user.id.isEmpty) {
+        if (mounted) showError(context, '${_l10n!.noUserFound} $email');
+        return;
+      }
+      final kuri = appData.kuris.firstWhere((k) => k.id == widget.kuri.id, orElse: () => widget.kuri);
+      if (kuri.participantUserIds.contains(user.id)) return;
+      await dataService.updateKuriParticipants(
+        widget.kuri.id,
+        widget.currentUserId,
+        [...kuri.participantUserIds, user.id],
+      );
+      final fresh = await dataService.getData();
+      ref.read(appDataProvider.notifier).updateState(fresh);
+      if (mounted) {
+        _addEmailCtrl.clear();
+        showSuccess(context, _l10n!.participantAdded);
+      }
+    } catch (e) {
+      if (mounted) showError(context, '$e');
+    } finally {
+      if (mounted) setState(() => _addingParticipant = false);
+    }
+  }
+
+  Future<void> _removeParticipant(String userId) async {
+    final appData = ref.read(appDataProvider).valueOrNull;
+    if (appData == null) return;
+    final kuri = appData.kuris.firstWhere((k) => k.id == widget.kuri.id, orElse: () => widget.kuri);
+    if (kuri.createdBy == userId) {
+      showError(context, _l10n!.cannotRemoveCreator);
+      return;
+    }
+    try {
+      await dataService.updateKuriParticipants(
+        widget.kuri.id,
+        widget.currentUserId,
+        kuri.participantUserIds.where((id) => id != userId).toList(),
+      );
+      final fresh = await dataService.getData();
+      ref.read(appDataProvider.notifier).updateState(fresh);
+      if (mounted) showSuccess(context, _l10n!.participantRemoved);
+    } catch (e) {
+      if (mounted) showError(context, '$e');
+    }
   }
 
   Future<void> _pickQrImage() async {
@@ -994,9 +1055,92 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
                     )
                   : Text(l10n.saveSettings),
             ),
+            const SizedBox(height: 28),
+            SectionTitle(l10n.manageParticipants),
+            _buildManageParticipants(c, l10n),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildManageParticipants(AppColors c, AppL10n l10n) {
+    final appData = ref.watch(appDataProvider).valueOrNull;
+    if (appData == null) return const SizedBox();
+    final kuri = appData.kuris.firstWhere((k) => k.id == widget.kuri.id, orElse: () => widget.kuri);
+    final participants = kuri.participantUserIds.map((id) {
+      return appData.users.firstWhere(
+        (u) => u.id == id,
+        orElse: () => AppUser(id: id, name: id, email: ''),
+      );
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ...participants.map((p) {
+          final isCreator = p.id == kuri.createdBy;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: c.surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: c.border),
+            ),
+            child: Row(
+              children: [
+                AvatarWidget(name: p.name, size: 28),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(p.name, style: TextStyle(color: c.text, fontWeight: FontWeight.w600, fontSize: 14)),
+                      if (p.email.isNotEmpty)
+                        Text(p.email, style: TextStyle(color: c.textMuted, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                if (isCreator)
+                  StatusBadge(label: l10n.creator, color: c.primary)
+                else
+                  TextButton(
+                    onPressed: () => _removeParticipant(p.id),
+                    style: TextButton.styleFrom(foregroundColor: c.danger, padding: EdgeInsets.zero),
+                    child: Text(l10n.remove, style: const TextStyle(fontSize: 13)),
+                  ),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _addEmailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                autocorrect: false,
+                style: TextStyle(color: c.text),
+                decoration: InputDecoration(
+                  labelText: l10n.enterEmailToAdd,
+                  prefixIcon: Icon(Icons.person_add_outlined, color: c.textMuted),
+                  isDense: true,
+                ),
+                onSubmitted: (_) => _addParticipant(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _addingParticipant
+                ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: c.primary))
+                : IconButton(
+                    icon: Icon(Icons.add_circle_outline, color: c.primary),
+                    onPressed: _addParticipant,
+                  ),
+          ],
+        ),
+      ],
     );
   }
 
