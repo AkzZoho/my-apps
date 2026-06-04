@@ -1,11 +1,11 @@
 {
-    "name": "kuri_app",
-    "short_name": "kuri_app",
+    "name": "Kuri",
+    "short_name": "Kuri",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0E6E6E",
+    "theme_color": "#0E6E6E",
+    "description": "Track your Kuri savings plans",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
