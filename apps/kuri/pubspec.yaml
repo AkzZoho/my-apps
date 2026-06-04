@@ -24,6 +24,19 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/kuri_icon.png"
+  adaptive_icon_background: "#0E6E6E"
+  adaptive_icon_foreground: "assets/kuri_icon.png"
+  min_sdk_android: 21
+  web:
+    generate: false
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/kuri_icon.png
