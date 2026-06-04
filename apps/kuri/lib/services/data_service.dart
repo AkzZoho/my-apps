@@ -285,7 +285,22 @@ class DataService {
       upiId: upiId.trim(),
       upiQrBase64: qrBase64,
     );
-    await saveData(data.copyWith(kuris: [...data.kuris, kuri]));
+    final inviteNotifs = uniqueParticipants
+        .where((id) => id != createdBy)
+        .map((id) => InAppNotification(
+              id: makeId('notif'),
+              kuriId: kuri.id,
+              userId: id,
+              title: 'Added to Kuri',
+              message: 'You have been added to "${kuri.name}"',
+              createdAt: nowIso(),
+              read: false,
+            ))
+        .toList();
+    await saveData(data.copyWith(
+      kuris: [...data.kuris, kuri],
+      notifications: [...data.notifications, ...inviteNotifs],
+    ));
     return kuri;
   }
 
@@ -299,12 +314,28 @@ class DataService {
     if (idx < 0) throw Exception('Kuri plan not found.');
     final kuri = data.kuris[idx];
     if (kuri.createdBy != actorId) throw Exception('Only the creator can manage participants.');
+    final previousIds = kuri.participantUserIds.toSet();
     final unique = participantIds.toSet().toList();
     if (!unique.contains(actorId)) unique.add(actorId);
     final updated = kuri.copyWith(participantUserIds: unique);
     final updatedKuris = List<KuriPlan>.from(data.kuris);
     updatedKuris[idx] = updated;
-    await saveData(data.copyWith(kuris: updatedKuris));
+    final newlyAdded = unique.where((id) => !previousIds.contains(id) && id != actorId).toList();
+    final inviteNotifs = newlyAdded
+        .map((id) => InAppNotification(
+              id: makeId('notif'),
+              kuriId: kuriId,
+              userId: id,
+              title: 'Added to Kuri',
+              message: 'You have been added to "${kuri.name}"',
+              createdAt: nowIso(),
+              read: false,
+            ))
+        .toList();
+    await saveData(data.copyWith(
+      kuris: updatedKuris,
+      notifications: [...data.notifications, ...inviteNotifs],
+    ));
     return updated;
   }
 
