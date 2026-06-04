@@ -147,6 +147,24 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
   bool _loading = false;
   AppL10n? _l10n;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureCreatorPayments());
+  }
+
+  Future<void> _ensureCreatorPayments() async {
+    final data = ref.read(appDataProvider).valueOrNull;
+    if (data == null) return;
+    final user = ref.read(currentUserProvider);
+    final kuri = data.kuris.firstWhere((k) => k.id == widget.kuriId,
+        orElse: () => KuriPlan(id: '', name: '', contributionAmount: 0, currency: '', startDate: '', participantUserIds: [], notificationConfig: NotificationConfig(rules: []), createdBy: '', createdAt: ''));
+    if (kuri.id.isEmpty || kuri.createdBy != user?.id) return;
+    await dataService.ensureCreatorPayments(widget.kuriId);
+    final fresh = await dataService.getData();
+    if (mounted) ref.read(appDataProvider.notifier).updateState(fresh);
+  }
+
   Future<void> _deleteKuri(KuriPlan kuri) async {
     final user = ref.read(currentUserProvider);
     if (user == null) return;

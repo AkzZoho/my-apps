@@ -4,6 +4,22 @@ import 'package:firebase_database/firebase_database.dart';
 import '../models.dart';
 import 'auth_service.dart';
 
+// Generates "YYYY-MM" keys from startDate up to (and including) current month.
+List<String> _elapsedMonths(String startDateStr) {
+  final months = <String>[];
+  try {
+    final start = DateTime.parse(startDateStr);
+    final now = DateTime.now();
+    var cur = DateTime(start.year, start.month);
+    final end = DateTime(now.year, now.month);
+    while (!cur.isAfter(end)) {
+      months.add('${cur.year}-${cur.month.toString().padLeft(2, '0')}');
+      cur = DateTime(cur.year, cur.month + 1);
+    }
+  } catch (_) {}
+  return months;
+}
+
 String makeId(String prefix) {
   final rand = Random.secure();
   final bytes = List.generate(3, (_) => rand.nextInt(256));
@@ -318,6 +334,8 @@ class DataService {
         ).catchError((_) {});
       }
     }
+    // Auto-approve creator's contributions for all elapsed months
+    await ensureCreatorPayments(kuri.id);
     return kuri;
   }
 
@@ -395,6 +413,35 @@ class DataService {
       kuris: data.kuris.where((k) => k.id != kuriId).toList(),
       payments: data.payments.where((p) => p.kuriId != kuriId).toList(),
     ));
+  }
+
+  // Auto-create approved payments for the creator for each elapsed month.
+  // Safe to call repeatedly — skips months that already have a payment record.
+  Future<void> ensureCreatorPayments(String kuriId) async {
+    final data = await getData();
+    final idx = data.kuris.indexWhere((k) => k.id == kuriId);
+    if (idx < 0) return;
+    final kuri = data.kuris[idx];
+    final months = _elapsedMonths(kuri.startDate);
+    final existingMonths = data.payments
+        .where((p) => p.kuriId == kuriId && p.userId == kuri.createdBy)
+        .map((p) => p.month)
+        .toSet();
+    final newPayments = months
+        .where((m) => !existingMonths.contains(m))
+        .map((m) => KuriPayment(
+              id: makeId('pay'),
+              kuriId: kuriId,
+              userId: kuri.createdBy,
+              month: m,
+              transactionId: 'CREATOR',
+              amount: kuri.contributionAmount,
+              status: 'approved',
+              submittedAt: nowIso(),
+            ))
+        .toList();
+    if (newPayments.isEmpty) return;
+    await saveData(data.copyWith(payments: [...data.payments, ...newPayments]));
   }
 
   Future<KuriPlan> updateKuriPaymentInfo(
