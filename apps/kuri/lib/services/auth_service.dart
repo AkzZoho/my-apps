@@ -81,6 +81,23 @@ class AuthService {
     return true;
   }
 
+  // ── Kuri invite email ──────────────────────────────────────────────────────
+
+  static const _kAppUrl = 'https://akzzoho.github.io/my-apps/kuri/';
+
+  static Future<void> sendKuriInviteEmail({
+    required String to,
+    required String kuriName,
+    required String inviterName,
+    required double monthlyAmount,
+  }) async {
+    await _callZeptoMail(
+      to: to,
+      subject: 'You\'ve been added to a Kuri plan',
+      html: _buildInviteEmailHtml(kuriName, inviterName, monthlyAmount),
+    );
+  }
+
   // ── Private helpers ────────────────────────────────────────────────────────
 
   static String _generateOtp() {
@@ -140,6 +157,40 @@ class AuthService {
     <p style="color:#999;font-size:12px;margin:0;line-height:1.7;">
       Valid for <strong>10 minutes</strong><br>
       Never share this code with anyone
+    </p>
+  </div>
+</div>
+</body>
+</html>''';
+
+  static String _buildInviteEmailHtml(
+      String kuriName, String inviterName, double monthlyAmount) =>
+      '''
+<!DOCTYPE html>
+<html>
+<body style="font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f5f5f7;margin:0;padding:24px;">
+<div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+  <div style="background:#0E6E6E;padding:24px;text-align:center;">
+    <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:16px;padding:12px 20px;">
+      <span style="color:#fff;font-size:28px;font-weight:800;letter-spacing:-1px;">₹ Kuri</span>
+    </div>
+  </div>
+  <div style="padding:36px 28px;">
+    <p style="color:#333;font-size:18px;font-weight:700;margin:0 0 8px;">You've been added to a Kuri!</p>
+    <p style="color:#666;font-size:14px;margin:0 0 24px;line-height:1.6;">
+      <strong>$inviterName</strong> has added you to the savings plan:
+    </p>
+    <div style="background:#f0f9f9;border:1px solid #b2dfdb;border-radius:12px;padding:20px;margin-bottom:28px;text-align:center;">
+      <p style="color:#0E6E6E;font-size:20px;font-weight:800;margin:0 0 6px;">$kuriName</p>
+      <p style="color:#555;font-size:14px;margin:0;">₹${monthlyAmount.toInt()} / month</p>
+    </div>
+    <div style="text-align:center;margin-bottom:28px;">
+      <a href="$_kAppUrl" style="display:inline-block;background:#0E6E6E;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;">
+        Open Kuri App →
+      </a>
+    </div>
+    <p style="color:#999;font-size:12px;margin:0;text-align:center;line-height:1.7;">
+      Log in with your email to view your Kuri plan and payment schedule.
     </p>
   </div>
 </div>

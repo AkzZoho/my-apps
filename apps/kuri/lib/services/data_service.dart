@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:convert';
 import 'package:firebase_database/firebase_database.dart';
 import '../models.dart';
+import 'auth_service.dart';
 
 String makeId(String prefix) {
   final rand = Random.secure();
@@ -285,8 +286,12 @@ class DataService {
       upiId: upiId.trim(),
       upiQrBase64: qrBase64,
     );
-    final inviteNotifs = uniqueParticipants
-        .where((id) => id != createdBy)
+    final creator = data.users.firstWhere(
+      (u) => u.id == createdBy,
+      orElse: () => AppUser(id: '', name: 'Someone', email: ''),
+    );
+    final invitedIds = uniqueParticipants.where((id) => id != createdBy).toList();
+    final inviteNotifs = invitedIds
         .map((id) => InAppNotification(
               id: makeId('notif'),
               kuriId: kuri.id,
@@ -301,6 +306,18 @@ class DataService {
       kuris: [...data.kuris, kuri],
       notifications: [...data.notifications, ...inviteNotifs],
     ));
+    // Send invite emails — fire and forget (don't fail Kuri creation if email fails)
+    for (final id in invitedIds) {
+      final user = data.users.firstWhere((u) => u.id == id, orElse: () => AppUser(id: '', name: '', email: ''));
+      if (user.email.isNotEmpty) {
+        AuthService.sendKuriInviteEmail(
+          to: user.email,
+          kuriName: kuri.name,
+          inviterName: creator.name,
+          monthlyAmount: kuri.contributionAmount,
+        ).catchError((_) {});
+      }
+    }
     return kuri;
   }
 
@@ -320,6 +337,10 @@ class DataService {
     final updated = kuri.copyWith(participantUserIds: unique);
     final updatedKuris = List<KuriPlan>.from(data.kuris);
     updatedKuris[idx] = updated;
+    final actor = data.users.firstWhere(
+      (u) => u.id == actorId,
+      orElse: () => AppUser(id: '', name: 'Someone', email: ''),
+    );
     final newlyAdded = unique.where((id) => !previousIds.contains(id) && id != actorId).toList();
     final inviteNotifs = newlyAdded
         .map((id) => InAppNotification(
@@ -336,6 +357,18 @@ class DataService {
       kuris: updatedKuris,
       notifications: [...data.notifications, ...inviteNotifs],
     ));
+    // Send invite emails — fire and forget
+    for (final id in newlyAdded) {
+      final user = data.users.firstWhere((u) => u.id == id, orElse: () => AppUser(id: '', name: '', email: ''));
+      if (user.email.isNotEmpty) {
+        AuthService.sendKuriInviteEmail(
+          to: user.email,
+          kuriName: kuri.name,
+          inviterName: actor.name,
+          monthlyAmount: kuri.contributionAmount,
+        ).catchError((_) {});
+      }
+    }
     return updated;
   }
 
