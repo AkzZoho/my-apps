@@ -390,6 +390,22 @@ class DataService {
     return updated;
   }
 
+  Future<void> deleteAccount(String userId) async {
+    final data = await getData();
+    final updatedKuris = data.kuris.map((k) {
+      if (!k.participantUserIds.contains(userId)) return k;
+      return k.copyWith(
+        participantUserIds: k.participantUserIds.where((id) => id != userId).toList(),
+      );
+    }).toList();
+    await saveData(data.copyWith(
+      users: data.users.where((u) => u.id != userId).toList(),
+      notifications: data.notifications.where((n) => n.userId != userId).toList(),
+      payments: data.payments.where((p) => p.userId != userId).toList(),
+      kuris: updatedKuris,
+    ));
+  }
+
   Future<void> deleteKuri(String kuriId, String actorId) async {
     final data = await getData();
     final kuri = data.kuris.firstWhere(

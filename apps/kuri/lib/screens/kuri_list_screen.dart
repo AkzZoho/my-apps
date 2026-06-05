@@ -7,6 +7,7 @@ import '../models.dart';
 import '../providers/providers.dart';
 import '../widgets/common.dart';
 import '../widgets/ios_install_banner.dart';
+import '../services/data_service.dart';
 import 'kuri_detail_screen.dart';
 import 'create_kuri_screen.dart';
 
@@ -131,9 +132,9 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.logout),
-                onPressed: () => ref.read(currentUserProvider.notifier).logout(),
-                tooltip: l10n.signOut,
+                icon: const Icon(Icons.account_circle_outlined),
+                onPressed: () => _showAccountSheet(context, user),
+                tooltip: l10n.account,
               ),
             ],
           ),
@@ -232,6 +233,109 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
           ),
         );
     }
+  }
+
+  void _showAccountSheet(BuildContext context, AppUser user) {
+    final l10n = AppL10n(ref.read(localeProvider));
+    showAppBottomSheet(
+      context,
+      Builder(builder: (ctx) {
+        final cc = ctx.colors;
+        return Container(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: cc.primary,
+                    child: Text(
+                      user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(user.name,
+                            style: TextStyle(
+                                color: cc.text,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16)),
+                        Text(user.email,
+                            style: TextStyle(color: cc.textMuted, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: cc.textMuted),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.logout),
+                label: Text(l10n.signOut),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  ref.read(currentUserProvider.notifier).logout();
+                },
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.delete_forever_outlined),
+                label: Text(l10n.deleteAccount),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: cc.danger,
+                  side: BorderSide(color: cc.danger),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _confirmDeleteAccount(context, user);
+                },
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  void _confirmDeleteAccount(BuildContext context, AppUser user) {
+    final l10n = AppL10n(ref.read(localeProvider));
+    showDialog(
+      context: context,
+      builder: (dCtx) {
+        final cc = dCtx.colors;
+        return AlertDialog(
+          backgroundColor: cc.surface,
+          title: Text(l10n.deleteAccount,
+              style: TextStyle(color: cc.danger, fontWeight: FontWeight.bold)),
+          content: Text(l10n.deleteAccountWarning,
+              style: TextStyle(color: cc.text)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dCtx),
+              child: Text(l10n.cancel),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(dCtx);
+                await dataService.deleteAccount(user.id);
+                await ref.read(currentUserProvider.notifier).logout();
+              },
+              child: Text(l10n.delete,
+                  style: TextStyle(color: cc.danger, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showNotificationsSheet(BuildContext context, AppData data, AppUser user) {

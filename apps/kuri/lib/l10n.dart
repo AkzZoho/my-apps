@@ -45,6 +45,10 @@ class AppL10n {
     'signOut': 'Sign out',
     'switchLanguage': 'Switch language',
     'toggleTheme': 'Toggle theme',
+    'account': 'Account',
+    'deleteAccount': 'Delete Account',
+    'deleteAccountWarning': 'This will permanently delete your account and all associated data. This cannot be undone.',
+    'accountDeleted': 'Account deleted.',
     'noKurisYet': 'No Kuris yet',
     'createFirstPlan': 'Create your first Kuri',
     'notifications': 'Notifications',
@@ -176,6 +180,10 @@ class AppL10n {
     'signOut': 'ഒഴിവ്',
     'switchLanguage': 'ഭാഷ മാറ്റൂ',
     'toggleTheme': 'തീം മാറ്റൂ',
+    'account': 'അക്കൗണ്ട്',
+    'deleteAccount': 'അക്കൗണ്ട് ഇല്ലാതാക്കൂ',
+    'deleteAccountWarning': 'ഇത് നിങ്ങളുടെ അക്കൗണ്ടും എല്ലാ ഡേറ്റയും ശാശ്വതമായി ഇല്ലാതാക്കും. ഇത് പഴയ നിലയിൽ കൊണ്ടുവരാൻ കഴിയില്ല.',
+    'accountDeleted': 'അക്കൗണ്ട് ഇല്ലാതാക്കി.',
     'noKurisYet': 'ഇതുവരെ കുറികൾ ഇല്ല',
     'createFirstPlan': 'നിങ്ങളുടെ ആദ്യ കുറി ഉണ്ടാക്കൂ',
     'notifications': 'അറിയിപ്പുകൾ',
@@ -302,6 +310,10 @@ class AppL10n {
   String get receipts           => _t('receipts');
   String get settings           => _t('settings');
   // List
+  String get account            => _t('account');
+  String get deleteAccount      => _t('deleteAccount');
+  String get deleteAccountWarning => _t('deleteAccountWarning');
+  String get accountDeleted     => _t('accountDeleted');
   String get signOut            => _t('signOut');
   String get switchLanguage     => _t('switchLanguage');
   String get toggleTheme        => _t('toggleTheme');
