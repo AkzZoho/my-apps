@@ -68,21 +68,18 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
     }
   }
 
-  Future<void> _closeAuction(KuriAuction auction) async {
-    final l10n = _l10n!;
-    final confirmed = await confirmDialog(
+  Future<void> _closeAuction(KuriAuction auction, AppData data) async {
+    final winnerId = await showAppBottomSheet<String>(
       context,
-      title: l10n.closeAuction,
-      message: '${l10n.closeAuction}?',
-      confirmLabel: l10n.closeAuction,
+      _SelectWinnerSheet(auction: auction, data: data),
     );
-    if (!confirmed || !mounted) return;
+    if (winnerId == null || !mounted) return;
     setState(() => _loading = true);
     try {
-      await dataService.closeAuction(auction.id, widget.currentUserId);
+      await dataService.closeAuction(auction.id, widget.currentUserId, winnerId);
       final fresh = await dataService.getData();
       ref.read(appDataProvider.notifier).updateState(fresh);
-      if (mounted) showSuccess(context, l10n.auctionClosed);
+      if (mounted) showSuccess(context, _l10n!.auctionClosed);
     } catch (e) {
       if (mounted) showError(context, '$e');
     } finally {
@@ -417,7 +414,7 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => _closeAuction(auction),
+                  onPressed: () => _closeAuction(auction, data),
                   icon: const Icon(Icons.lock_outline, size: 16),
                   label: Text(l10n.closeAuction,
                       overflow: TextOverflow.ellipsis),
@@ -729,36 +726,193 @@ class MonthWinnerChip extends ConsumerWidget {
 
     return Container(
       margin: const EdgeInsets.only(top: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: c.warn.withOpacity(0.12),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: c.warn.withOpacity(0.3)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('🏆', style: const TextStyle(fontSize: 13)),
-          const SizedBox(width: 4),
-          Text(
-            '${l10n.winner}: ${winner.name}',
-            style: TextStyle(
-                color: c.text, fontSize: 12, fontWeight: FontWeight.w500),
+          Row(
+            children: [
+              const Text('🏆', style: TextStyle(fontSize: 13)),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  '${l10n.winner}: ${winner.name}',
+                  style: TextStyle(
+                      color: c.text, fontSize: 12, fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-          if (auction.prizeAmount != null) ...[
-            Text(' · ', style: TextStyle(color: c.textDim, fontSize: 12)),
-            Text(
-              '₹${auction.prizeAmount!.toInt()} ${l10n.prizeAmount.toLowerCase()}',
-              style: TextStyle(color: c.green, fontSize: 12),
+          if (auction.prizeAmount != null || auction.dividendPerMember != null) ...[
+            const SizedBox(height: 3),
+            Row(
+              children: [
+                if (auction.prizeAmount != null)
+                  Text(
+                    '₹${auction.prizeAmount!.toInt()} ${l10n.prizeAmount.toLowerCase()}',
+                    style: TextStyle(color: c.green, fontSize: 11),
+                  ),
+                if (auction.prizeAmount != null && auction.dividendPerMember != null &&
+                    (auction.dividendPerMember ?? 0) > 0)
+                  Text(' · ', style: TextStyle(color: c.textDim, fontSize: 11)),
+                if (auction.dividendPerMember != null && (auction.dividendPerMember ?? 0) > 0)
+                  Text(
+                    '₹${auction.dividendPerMember!.toInt()} ${l10n.dividendPerMember.toLowerCase()}',
+                    style: TextStyle(color: c.primary, fontSize: 11),
+                  ),
+              ],
             ),
           ],
-          if (auction.dividendPerMember != null) ...[
-            Text(' · ', style: TextStyle(color: c.textDim, fontSize: 12)),
-            Text(
-              '₹${auction.dividendPerMember!.toInt()} ${l10n.dividendPerMember.toLowerCase()}',
-              style: TextStyle(color: c.primary, fontSize: 12),
-            ),
-          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── _SelectWinnerSheet ───────────────────────────────────────────────────────
+
+class _SelectWinnerSheet extends ConsumerStatefulWidget {
+  final KuriAuction auction;
+  final AppData data;
+
+  const _SelectWinnerSheet({required this.auction, required this.data});
+
+  @override
+  ConsumerState<_SelectWinnerSheet> createState() => _SelectWinnerSheetState();
+}
+
+class _SelectWinnerSheetState extends ConsumerState<_SelectWinnerSheet> {
+  String? _selectedUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-select highest bidder
+    if (widget.auction.bids.isNotEmpty) {
+      final top = [...widget.auction.bids]
+        ..sort((a, b) => b.discountAmount.compareTo(a.discountAmount));
+      _selectedUserId = top.first.userId;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
+    final sortedBids = [...widget.auction.bids]
+      ..sort((a, b) => b.discountAmount.compareTo(a.discountAmount));
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text(
+                l10n.selectWinner,
+                style: TextStyle(
+                    color: c.text, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: Icon(Icons.close, color: c.textMuted),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            formatMonthKey(widget.auction.month),
+            style: TextStyle(color: c.textMuted, fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          ...sortedBids.map((bid) {
+            final user = widget.data.users.firstWhere(
+              (u) => u.id == bid.userId,
+              orElse: () => AppUser(id: bid.userId, name: bid.userId, email: ''),
+            );
+            final isTop = bid.userId == sortedBids.first.userId;
+            final isSelected = _selectedUserId == bid.userId;
+            return GestureDetector(
+              onTap: () => setState(() => _selectedUserId = bid.userId),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? c.primary.withOpacity(0.1)
+                      : c.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isSelected ? c.primary : c.border,
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    AvatarWidget(name: user.name, size: 28),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(user.name,
+                              style: TextStyle(
+                                  color: c.text,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14)),
+                          Text(
+                            '₹${bid.discountAmount.toInt()} discount',
+                            style: TextStyle(color: c.textMuted, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isTop)
+                      Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: c.warn.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text('Highest',
+                            style: TextStyle(
+                                color: c.warn,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    Radio<String>(
+                      value: bid.userId,
+                      groupValue: _selectedUserId,
+                      activeColor: c.primary,
+                      onChanged: (v) =>
+                          setState(() => _selectedUserId = v),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            onPressed: _selectedUserId == null
+                ? null
+                : () => Navigator.pop(context, _selectedUserId),
+            icon: const Icon(Icons.lock_outline, size: 16),
+            label: Text(l10n.closeAuction),
+          ),
         ],
       ),
     );

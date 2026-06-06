@@ -473,7 +473,7 @@ class DataService {
     return updatedAuctions[idx];
   }
 
-  Future<KuriAuction> closeAuction(String auctionId, String actorId) async {
+  Future<KuriAuction> closeAuction(String auctionId, String actorId, String winnerId) async {
     final data = await getData();
     final idx = data.auctions.indexWhere((a) => a.id == auctionId);
     if (idx < 0) throw Exception('Auction not found.');
@@ -484,8 +484,10 @@ class DataService {
     if (kuri.id.isEmpty) throw Exception('Kuri not found.');
     if (kuri.createdBy != actorId) throw Exception('Only the Moopan can close an auction.');
     if (auction.bids.isEmpty) throw Exception('No bids have been placed yet.');
-    final sortedBids = [...auction.bids]..sort((a, b) => b.discountAmount.compareTo(a.discountAmount));
-    final winner = sortedBids.first;
+    final winner = auction.bids.firstWhere(
+      (b) => b.userId == winnerId,
+      orElse: () => auction.bids.reduce((a, b) => a.discountAmount > b.discountAmount ? a : b),
+    );
     final pool = kuri.contributionAmount * kuri.participantUserIds.length;
     final commission = pool * kuri.moopanCommissionPercent / 100;
     final prizeAmount = pool - winner.discountAmount - commission;
