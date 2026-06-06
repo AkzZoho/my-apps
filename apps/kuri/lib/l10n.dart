@@ -54,7 +54,7 @@ class AppL10n {
     'notifications': 'Notifications',
     'noNotifications': 'No notifications',
     'allCaughtUp': 'You are all caught up!',
-    'creator': 'Creator',
+    'creator': 'Moopan',
     'participant': 'participant',
     'participants': 'participants',
     // Kuri detail
@@ -104,6 +104,33 @@ class AppL10n {
     'removeQr': 'Remove QR Code',
     'saveSettings': 'Save Settings',
     'optional': '(optional)',
+    'kuriType': 'Kuri Type',
+    'lelamKuri': 'Lelam Kuri (Auction)',
+    'changathaKuri': 'Changatha Kuri (Lottery)',
+    'moopanCommissionLabel': "Moopan's Commission (%)",
+    'maxDiscountLabel': 'Max Discount (%)',
+    'prizePaidWithinLabel': 'Prize Paid Within (days)',
+    'auction': 'Auction',
+    'openAuction': 'Open Auction',
+    'auctionOpen': 'Auction Open',
+    'auctionClosed': 'Auction Closed',
+    'placeBid': 'Place Bid',
+    'yourBid': 'Bid placed!',
+    'discountAmount': 'Discount Amount (₹)',
+    'closeAuction': 'Close & Declare Winner',
+    'noBids': 'No bids yet',
+    'winner': 'Winner',
+    'prizeAmount': 'Prize Amount',
+    'dividendPerMember': 'Dividend / member',
+    'bidExceedsMax': 'Bid exceeds maximum allowed discount',
+    'drawWinner': 'Draw Winner',
+    'auctionAlreadyWon': 'Already won an auction',
+    'selectWinner': 'Select Winner',
+    'auctionHistory': 'AUCTION HISTORY',
+    'noAuctionYet': 'No auction',
+    'openAuctionFor': 'Open auction for',
+    'commission': 'Commission',
+    'pool': 'Pool',
     'manageParticipants': 'MANAGE PARTICIPANTS',
     'remove': 'Remove',
     'participantAdded': 'Participant added.',
@@ -189,7 +216,7 @@ class AppL10n {
     'notifications': 'അറിയിപ്പുകൾ',
     'noNotifications': 'അറിയിപ്പുകൾ ഇല്ല',
     'allCaughtUp': 'എല്ലാം കൃത്യമാണ്!',
-    'creator': 'സ്ഥാപകൻ',
+    'creator': 'മൂപ്പൻ',
     'participant': 'അംഗം',
     'participants': 'അംഗങ്ങൾ',
     // Kuri detail
@@ -239,6 +266,33 @@ class AppL10n {
     'removeQr': 'QR കോഡ് നീക്കൂ',
     'saveSettings': 'ക്രമീകരണങ്ങൾ സൂക്ഷിക്കൂ',
     'optional': '(ഐച്ഛികം)',
+    'kuriType': 'കുറി തരം',
+    'lelamKuri': 'ലേലം കുറി (ലേലം)',
+    'changathaKuri': 'ചങ്ങാതി കുറി (നറുക്കെടുപ്പ്)',
+    'moopanCommissionLabel': 'മൂപ്പൻ കമ്മീഷൻ (%)',
+    'maxDiscountLabel': 'പരമാവധി കിഴിവ് (%)',
+    'prizePaidWithinLabel': 'സമ്മാനം അടക്കേണ്ട ദിവസം',
+    'auction': 'ലേലം',
+    'openAuction': 'ലേലം തുറക്കൂ',
+    'auctionOpen': 'ലേലം തുറന്നിരിക്കുന്നു',
+    'auctionClosed': 'ലേലം അടഞ്ഞു',
+    'placeBid': 'ബിഡ് ഇടൂ',
+    'yourBid': 'ബിഡ് ഇട്ടു!',
+    'discountAmount': 'കിഴിവ് തുക (₹)',
+    'closeAuction': 'ലേലം അടക്കൂ',
+    'noBids': 'ബിഡ്ഡുകൾ ഇല്ല',
+    'winner': 'വിജയി',
+    'prizeAmount': 'സമ്മാന തുക',
+    'dividendPerMember': 'ഓരോ അംഗത്തിനും',
+    'bidExceedsMax': 'ബിഡ് അനുവദനീയ പരിധി കടന്നു',
+    'drawWinner': 'വിജയിയെ നിർണ്ണയിക്കൂ',
+    'auctionAlreadyWon': 'ഇതിനകം ജയിച്ചു',
+    'selectWinner': 'വിജയിയെ തിരഞ്ഞെടുക്കൂ',
+    'auctionHistory': 'ലേലം ചരിത്രം',
+    'noAuctionYet': 'ലേലം ഇല്ല',
+    'openAuctionFor': 'ലേലം തുറക്കൂ',
+    'commission': 'കമ്മീഷൻ',
+    'pool': 'ആകെ',
     'manageParticipants': 'അംഗങ്ങളെ നിയന്ത്രിക്കൂ',
     'remove': 'നീക്കൂ',
     'participantAdded': 'അംഗം ചേർക്കപ്പെട്ടു.',
@@ -372,6 +426,34 @@ class AppL10n {
   String get removeQr           => _t('removeQr');
   String get saveSettings       => _t('saveSettings');
   String get optional           => _t('optional');
+  // Kuri type / auction
+  String get kuriType              => _t('kuriType');
+  String get lelamKuri             => _t('lelamKuri');
+  String get changathaKuri         => _t('changathaKuri');
+  String get moopanCommissionLabel => _t('moopanCommissionLabel');
+  String get maxDiscountLabel      => _t('maxDiscountLabel');
+  String get prizePaidWithinLabel  => _t('prizePaidWithinLabel');
+  String get auction               => _t('auction');
+  String get openAuction           => _t('openAuction');
+  String get auctionOpen           => _t('auctionOpen');
+  String get auctionClosed         => _t('auctionClosed');
+  String get placeBid              => _t('placeBid');
+  String get yourBid               => _t('yourBid');
+  String get discountAmount        => _t('discountAmount');
+  String get closeAuction          => _t('closeAuction');
+  String get noBids                => _t('noBids');
+  String get winner                => _t('winner');
+  String get prizeAmount           => _t('prizeAmount');
+  String get dividendPerMember     => _t('dividendPerMember');
+  String get bidExceedsMax         => _t('bidExceedsMax');
+  String get drawWinner            => _t('drawWinner');
+  String get auctionAlreadyWon     => _t('auctionAlreadyWon');
+  String get selectWinner          => _t('selectWinner');
+  String get auctionHistory        => _t('auctionHistory');
+  String get noAuctionYet          => _t('noAuctionYet');
+  String get openAuctionFor        => _t('openAuctionFor');
+  String get commission            => _t('commission');
+  String get pool                  => _t('pool');
   // Create
   String get participantsCap    => _t('participants_cap');
   String get planName           => _t('planName');

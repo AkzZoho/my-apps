@@ -35,6 +35,17 @@ String makeInviteCode() {
 
 String nowIso() => DateTime.now().toUtc().toIso8601String();
 
+String _monthLabel(String month) {
+  try {
+    final p = month.split('-');
+    const names = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+    return '${names[int.parse(p[1])]} ${p[0]}';
+  } catch (_) {
+    return month;
+  }
+}
+
 class DataService {
   final DatabaseReference _ref = FirebaseDatabase.instance.ref('appData');
 
@@ -278,6 +289,10 @@ class DataService {
     String upiId = '',
     String? qrBase64,
     required String createdBy,
+    String kuriType = 'lelam',
+    double moopanCommissionPercent = 5.0,
+    double maxDiscountPercent = 30.0,
+    int prizePaidWithinDays = 7,
   }) async {
     final data = await getData();
 
@@ -301,6 +316,10 @@ class DataService {
       createdAt: nowIso(),
       upiId: upiId.trim(),
       upiQrBase64: qrBase64,
+      kuriType: kuriType,
+      moopanCommissionPercent: moopanCommissionPercent,
+      maxDiscountPercent: maxDiscountPercent,
+      prizePaidWithinDays: prizePaidWithinDays,
     );
     final creator = data.users.firstWhere(
       (u) => u.id == createdBy,
@@ -390,6 +409,185 @@ class DataService {
     return updated;
   }
 
+  Future<KuriAuction> openAuction(String kuriId, String month, String actorId) async {
+    final data = await getData();
+    final kuri = data.kuris.firstWhere((k) => k.id == kuriId,
+        orElse: () => KuriPlan(id: '', name: '', contributionAmount: 0, currency: 'INR', startDate: '', participantUserIds: [], notificationConfig: NotificationConfig(rules: []), createdBy: '', createdAt: ''));
+    if (kuri.id.isEmpty) throw Exception('Kuri not found.');
+    if (kuri.createdBy != actorId) throw Exception('Only the Moopan can open an auction.');
+    if (data.auctions.any((a) => a.kuriId == kuriId && a.month == month && a.status == 'open')) {
+      throw Exception('An auction is already open for this month.');
+    }
+    if (data.auctions.any((a) => a.kuriId == kuriId && a.month == month && a.status == 'closed')) {
+      throw Exception('Winner already declared for this month.');
+    }
+    final auction = KuriAuction(
+      id: makeId('auc'),
+      kuriId: kuriId,
+      month: month,
+      status: 'open',
+      bids: [],
+      createdAt: nowIso(),
+    );
+    final notifs = kuri.participantUserIds
+        .where((id) => id != actorId)
+        .map((id) => InAppNotification(
+              id: makeId('notif'),
+              kuriId: kuriId,
+              userId: id,
+              title: 'Auction Open',
+              message: 'Auction is open for $month in "${kuri.name}". Place your bid!',
+              createdAt: nowIso(),
+              read: false,
+            ))
+        .toList();
+    await saveData(data.copyWith(
+      auctions: [...data.auctions, auction],
+      notifications: [...data.notifications, ...notifs],
+    ));
+    return auction;
+  }
+
+  Future<KuriAuction> placeBid(String auctionId, String userId, double discountAmount) async {
+    final data = await getData();
+    final idx = data.auctions.indexWhere((a) => a.id == auctionId);
+    if (idx < 0) throw Exception('Auction not found.');
+    final auction = data.auctions[idx];
+    if (auction.status != 'open') throw Exception('Auction is not open.');
+    final kuri = data.kuris.firstWhere((k) => k.id == auction.kuriId,
+        orElse: () => KuriPlan(id: '', name: '', contributionAmount: 0, currency: 'INR', startDate: '', participantUserIds: [], notificationConfig: NotificationConfig(rules: []), createdBy: '', createdAt: ''));
+    if (kuri.id.isEmpty) throw Exception('Kuri not found.');
+    final alreadyWon = data.auctions.any((a) =>
+        a.kuriId == auction.kuriId && a.status == 'closed' && a.winnerId == userId);
+    if (alreadyWon) throw Exception('You have already won an auction in this Kuri.');
+    final maxDiscount = kuri.contributionAmount * kuri.participantUserIds.length * kuri.maxDiscountPercent / 100;
+    if (discountAmount > maxDiscount) {
+      throw Exception('Bid of ₹${discountAmount.toInt()} exceeds max allowed ₹${maxDiscount.toInt()}.');
+    }
+    if (discountAmount <= 0) throw Exception('Bid must be greater than zero.');
+    final updatedBids = [...auction.bids.where((b) => b.userId != userId),
+      AuctionBid(userId: userId, discountAmount: discountAmount, bidAt: nowIso())];
+    final updatedAuctions = List<KuriAuction>.from(data.auctions);
+    updatedAuctions[idx] = auction.copyWith(bids: updatedBids);
+    await saveData(data.copyWith(auctions: updatedAuctions));
+    return updatedAuctions[idx];
+  }
+
+  Future<KuriAuction> closeAuction(String auctionId, String actorId) async {
+    final data = await getData();
+    final idx = data.auctions.indexWhere((a) => a.id == auctionId);
+    if (idx < 0) throw Exception('Auction not found.');
+    final auction = data.auctions[idx];
+    if (auction.status != 'open') throw Exception('Auction is not open.');
+    final kuri = data.kuris.firstWhere((k) => k.id == auction.kuriId,
+        orElse: () => KuriPlan(id: '', name: '', contributionAmount: 0, currency: 'INR', startDate: '', participantUserIds: [], notificationConfig: NotificationConfig(rules: []), createdBy: '', createdAt: ''));
+    if (kuri.id.isEmpty) throw Exception('Kuri not found.');
+    if (kuri.createdBy != actorId) throw Exception('Only the Moopan can close an auction.');
+    if (auction.bids.isEmpty) throw Exception('No bids have been placed yet.');
+    final sortedBids = [...auction.bids]..sort((a, b) => b.discountAmount.compareTo(a.discountAmount));
+    final winner = sortedBids.first;
+    final pool = kuri.contributionAmount * kuri.participantUserIds.length;
+    final commission = pool * kuri.moopanCommissionPercent / 100;
+    final prizeAmount = pool - winner.discountAmount - commission;
+    final numOthers = kuri.participantUserIds.length - 1;
+    final dividend = numOthers > 0 ? winner.discountAmount / numOthers : 0.0;
+    final updated = auction.copyWith(
+      status: 'closed',
+      winnerId: winner.userId,
+      winningDiscount: winner.discountAmount,
+      prizeAmount: prizeAmount,
+      dividendPerMember: dividend,
+      closedAt: nowIso(),
+    );
+    final updatedAuctions = List<KuriAuction>.from(data.auctions);
+    updatedAuctions[idx] = updated;
+    final winnerUser = data.users.firstWhere((u) => u.id == winner.userId, orElse: () => AppUser(id: '', name: 'Someone', email: ''));
+    final notifWinner = InAppNotification(
+      id: makeId('notif'),
+      kuriId: kuri.id,
+      userId: winner.userId,
+      title: 'You won the auction!',
+      message: 'You won the ${ _monthLabel(auction.month)} auction for "${kuri.name}". Prize: ₹${prizeAmount.toInt()}',
+      createdAt: nowIso(),
+      read: false,
+    );
+    final otherNotifs = kuri.participantUserIds
+        .where((id) => id != winner.userId && id != actorId)
+        .map((id) => InAppNotification(
+              id: makeId('notif'),
+              kuriId: kuri.id,
+              userId: id,
+              title: 'Auction result',
+              message: '${winnerUser.name} won the ${_monthLabel(auction.month)} auction. Your dividend: ₹${dividend.toStringAsFixed(2)}',
+              createdAt: nowIso(),
+              read: false,
+            ))
+        .toList();
+    await saveData(data.copyWith(
+      auctions: updatedAuctions,
+      notifications: [...data.notifications, notifWinner, ...otherNotifs],
+    ));
+    return updated;
+  }
+
+  Future<KuriAuction> declareChangathaWinner(
+      String kuriId, String month, String actorId, String winnerId) async {
+    final data = await getData();
+    final kuri = data.kuris.firstWhere((k) => k.id == kuriId,
+        orElse: () => KuriPlan(id: '', name: '', contributionAmount: 0, currency: 'INR', startDate: '', participantUserIds: [], notificationConfig: NotificationConfig(rules: []), createdBy: '', createdAt: ''));
+    if (kuri.id.isEmpty) throw Exception('Kuri not found.');
+    if (kuri.createdBy != actorId) throw Exception('Only the Moopan can declare winners.');
+    if (data.auctions.any((a) => a.kuriId == kuriId && a.month == month && a.status == 'closed')) {
+      throw Exception('Winner already declared for this month.');
+    }
+    final alreadyWon = data.auctions.any((a) =>
+        a.kuriId == kuriId && a.status == 'closed' && a.winnerId == winnerId);
+    if (alreadyWon) throw Exception('This participant has already won a previous month.');
+    final pool = kuri.contributionAmount * kuri.participantUserIds.length;
+    final commission = pool * kuri.moopanCommissionPercent / 100;
+    final prizeAmount = pool - commission;
+    final auction = KuriAuction(
+      id: makeId('auc'),
+      kuriId: kuriId,
+      month: month,
+      status: 'closed',
+      bids: [],
+      winnerId: winnerId,
+      winningDiscount: 0,
+      prizeAmount: prizeAmount,
+      dividendPerMember: 0,
+      createdAt: nowIso(),
+      closedAt: nowIso(),
+    );
+    final winnerUser = data.users.firstWhere((u) => u.id == winnerId, orElse: () => AppUser(id: '', name: 'Someone', email: ''));
+    final notifWinner = InAppNotification(
+      id: makeId('notif'),
+      kuriId: kuri.id,
+      userId: winnerId,
+      title: 'You won the draw!',
+      message: 'You were drawn as winner for ${_monthLabel(month)} in "${kuri.name}". Prize: ₹${prizeAmount.toInt()}',
+      createdAt: nowIso(),
+      read: false,
+    );
+    final otherNotifs = kuri.participantUserIds
+        .where((id) => id != winnerId)
+        .map((id) => InAppNotification(
+              id: makeId('notif'),
+              kuriId: kuri.id,
+              userId: id,
+              title: 'Draw result',
+              message: '${winnerUser.name} was drawn as winner for ${_monthLabel(month)} in "${kuri.name}"',
+              createdAt: nowIso(),
+              read: false,
+            ))
+        .toList();
+    await saveData(data.copyWith(
+      auctions: [...data.auctions, auction],
+      notifications: [...data.notifications, notifWinner, ...otherNotifs],
+    ));
+    return auction;
+  }
+
   Future<void> deleteAccount(String userId) async {
     final data = await getData();
     final updatedKuris = data.kuris.map((k) {
@@ -475,6 +673,29 @@ class DataService {
     final updated = kuri.copyWith(
       upiId: upiId.trim(),
       upiQrBase64: qrBase64 ?? kuri.upiQrBase64,
+    );
+    final updatedKuris = List<KuriPlan>.from(data.kuris);
+    updatedKuris[idx] = updated;
+    await saveData(data.copyWith(kuris: updatedKuris));
+    return updated;
+  }
+
+  Future<KuriPlan> updateKuriSettings(
+    String kuriId,
+    String actorId, {
+    required double moopanCommissionPercent,
+    required double maxDiscountPercent,
+    required int prizePaidWithinDays,
+  }) async {
+    final data = await getData();
+    final idx = data.kuris.indexWhere((k) => k.id == kuriId);
+    if (idx < 0) throw Exception('Kuri plan not found.');
+    final kuri = data.kuris[idx];
+    if (kuri.createdBy != actorId) throw Exception('Only the Moopan can update Kuri settings.');
+    final updated = kuri.copyWith(
+      moopanCommissionPercent: moopanCommissionPercent,
+      maxDiscountPercent: maxDiscountPercent,
+      prizePaidWithinDays: prizePaidWithinDays,
     );
     final updatedKuris = List<KuriPlan>.from(data.kuris);
     updatedKuris[idx] = updated;

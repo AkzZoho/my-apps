@@ -222,6 +222,10 @@ class KuriPlan {
   final String createdAt;
   final String? upiId;
   final String? upiQrBase64;
+  final String kuriType; // 'lelam' | 'changatha'
+  final double moopanCommissionPercent;
+  final double maxDiscountPercent;
+  final int prizePaidWithinDays;
 
   KuriPlan({
     required this.id,
@@ -236,6 +240,10 @@ class KuriPlan {
     required this.createdAt,
     this.upiId,
     this.upiQrBase64,
+    this.kuriType = 'lelam',
+    this.moopanCommissionPercent = 5.0,
+    this.maxDiscountPercent = 30.0,
+    this.prizePaidWithinDays = 7,
   });
 
   factory KuriPlan.fromJson(Map<dynamic, dynamic> json) {
@@ -266,6 +274,10 @@ class KuriPlan {
       createdAt: json['createdAt']?.toString() ?? '',
       upiId: json['upiId']?.toString(),
       upiQrBase64: json['upiQrBase64']?.toString(),
+      kuriType: json['kuriType']?.toString() ?? 'lelam',
+      moopanCommissionPercent: (json['moopanCommissionPercent'] as num?)?.toDouble() ?? 5.0,
+      maxDiscountPercent: (json['maxDiscountPercent'] as num?)?.toDouble() ?? 30.0,
+      prizePaidWithinDays: (json['prizePaidWithinDays'] as num?)?.toInt() ?? 7,
     );
   }
 
@@ -282,6 +294,10 @@ class KuriPlan {
         'createdAt': createdAt,
         'upiId': upiId,
         'upiQrBase64': upiQrBase64,
+        'kuriType': kuriType,
+        'moopanCommissionPercent': moopanCommissionPercent,
+        'maxDiscountPercent': maxDiscountPercent,
+        'prizePaidWithinDays': prizePaidWithinDays,
       };
 
   KuriPlan copyWith({
@@ -297,6 +313,10 @@ class KuriPlan {
     String? createdAt,
     String? upiId,
     String? upiQrBase64,
+    String? kuriType,
+    double? moopanCommissionPercent,
+    double? maxDiscountPercent,
+    int? prizePaidWithinDays,
   }) =>
       KuriPlan(
         id: id ?? this.id,
@@ -311,6 +331,10 @@ class KuriPlan {
         createdAt: createdAt ?? this.createdAt,
         upiId: upiId ?? this.upiId,
         upiQrBase64: upiQrBase64 ?? this.upiQrBase64,
+        kuriType: kuriType ?? this.kuriType,
+        moopanCommissionPercent: moopanCommissionPercent ?? this.moopanCommissionPercent,
+        maxDiscountPercent: maxDiscountPercent ?? this.maxDiscountPercent,
+        prizePaidWithinDays: prizePaidWithinDays ?? this.prizePaidWithinDays,
       );
 }
 
@@ -489,6 +513,135 @@ class InAppNotification {
       };
 }
 
+// ─── Auction Models ───────────────────────────────────────────────────────────
+
+class AuctionBid {
+  final String userId;
+  final double discountAmount;
+  final String bidAt;
+
+  AuctionBid({required this.userId, required this.discountAmount, required this.bidAt});
+
+  factory AuctionBid.fromJson(Map<dynamic, dynamic> json) => AuctionBid(
+        userId: json['userId']?.toString() ?? '',
+        discountAmount: (json['discountAmount'] as num?)?.toDouble() ?? 0.0,
+        bidAt: json['bidAt']?.toString() ?? '',
+      );
+
+  Map<String, dynamic> toJson() => {
+        'userId': userId,
+        'discountAmount': discountAmount,
+        'bidAt': bidAt,
+      };
+
+  AuctionBid copyWith({String? userId, double? discountAmount, String? bidAt}) =>
+      AuctionBid(
+        userId: userId ?? this.userId,
+        discountAmount: discountAmount ?? this.discountAmount,
+        bidAt: bidAt ?? this.bidAt,
+      );
+}
+
+class KuriAuction {
+  final String id;
+  final String kuriId;
+  final String month; // 'YYYY-MM'
+  final String status; // 'open' | 'closed'
+  final List<AuctionBid> bids;
+  final String? winnerId;
+  final double? winningDiscount;
+  final double? prizeAmount;
+  final double? dividendPerMember;
+  final String createdAt;
+  final String? closedAt;
+
+  KuriAuction({
+    required this.id,
+    required this.kuriId,
+    required this.month,
+    required this.status,
+    required this.bids,
+    this.winnerId,
+    this.winningDiscount,
+    this.prizeAmount,
+    this.dividendPerMember,
+    required this.createdAt,
+    this.closedAt,
+  });
+
+  factory KuriAuction.fromJson(Map<dynamic, dynamic> json) {
+    final rawBids = json['bids'];
+    List<AuctionBid> bids = [];
+    if (rawBids is List) {
+      bids = rawBids
+          .where((b) => b != null)
+          .map((b) => AuctionBid.fromJson(Map<dynamic, dynamic>.from(b as Map)))
+          .toList();
+    } else if (rawBids is Map) {
+      bids = rawBids.values
+          .where((b) => b != null)
+          .map((b) => AuctionBid.fromJson(Map<dynamic, dynamic>.from(b as Map)))
+          .toList();
+    }
+    return KuriAuction(
+      id: json['id']?.toString() ?? '',
+      kuriId: json['kuriId']?.toString() ?? '',
+      month: json['month']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'open',
+      bids: bids,
+      winnerId: json['winnerId']?.toString(),
+      winningDiscount: (json['winningDiscount'] as num?)?.toDouble(),
+      prizeAmount: (json['prizeAmount'] as num?)?.toDouble(),
+      dividendPerMember: (json['dividendPerMember'] as num?)?.toDouble(),
+      createdAt: json['createdAt']?.toString() ?? '',
+      closedAt: json['closedAt']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'kuriId': kuriId,
+        'month': month,
+        'status': status,
+        'bids': bids.map((b) => b.toJson()).toList(),
+        'winnerId': winnerId,
+        'winningDiscount': winningDiscount,
+        'prizeAmount': prizeAmount,
+        'dividendPerMember': dividendPerMember,
+        'createdAt': createdAt,
+        'closedAt': closedAt,
+      };
+
+  KuriAuction copyWith({
+    String? id,
+    String? kuriId,
+    String? month,
+    String? status,
+    List<AuctionBid>? bids,
+    String? winnerId,
+    double? winningDiscount,
+    double? prizeAmount,
+    double? dividendPerMember,
+    String? createdAt,
+    String? closedAt,
+  }) =>
+      KuriAuction(
+        id: id ?? this.id,
+        kuriId: kuriId ?? this.kuriId,
+        month: month ?? this.month,
+        status: status ?? this.status,
+        bids: bids ?? this.bids,
+        winnerId: winnerId ?? this.winnerId,
+        winningDiscount: winningDiscount ?? this.winningDiscount,
+        prizeAmount: prizeAmount ?? this.prizeAmount,
+        dividendPerMember: dividendPerMember ?? this.dividendPerMember,
+        createdAt: createdAt ?? this.createdAt,
+        closedAt: closedAt ?? this.closedAt,
+      );
+}
+
+// ─── AppData ──────────────────────────────────────────────────────────────────
+
 class AppData {
   final List<AppUser> users;
   final List<Group> groups;
@@ -497,6 +650,7 @@ class AppData {
   final List<KuriPayment> payments;
   final List<ChatMessage> chatMessages;
   final List<InAppNotification> notifications;
+  final List<KuriAuction> auctions;
 
   AppData({
     required this.users,
@@ -506,6 +660,7 @@ class AppData {
     required this.payments,
     required this.chatMessages,
     required this.notifications,
+    required this.auctions,
   });
 
   factory AppData.empty() => AppData(
@@ -516,6 +671,7 @@ class AppData {
         payments: [],
         chatMessages: [],
         notifications: [],
+        auctions: [],
       );
 
   factory AppData.fromJson(Map<dynamic, dynamic> json) {
@@ -544,6 +700,7 @@ class AppData {
       payments: parseList(json['payments'], KuriPayment.fromJson),
       chatMessages: parseList(json['chatMessages'], ChatMessage.fromJson),
       notifications: parseList(json['notifications'], InAppNotification.fromJson),
+      auctions: parseList(json['auctions'], KuriAuction.fromJson),
     );
   }
 
@@ -555,6 +712,7 @@ class AppData {
         'payments': payments.map((p) => p.toJson()).toList(),
         'chatMessages': chatMessages.map((m) => m.toJson()).toList(),
         'notifications': notifications.map((n) => n.toJson()).toList(),
+        'auctions': auctions.map((a) => a.toJson()).toList(),
       };
 
   AppData copyWith({
@@ -565,6 +723,7 @@ class AppData {
     List<KuriPayment>? payments,
     List<ChatMessage>? chatMessages,
     List<InAppNotification>? notifications,
+    List<KuriAuction>? auctions,
   }) =>
       AppData(
         users: users ?? this.users,
@@ -574,5 +733,6 @@ class AppData {
         payments: payments ?? this.payments,
         chatMessages: chatMessages ?? this.chatMessages,
         notifications: notifications ?? this.notifications,
+        auctions: auctions ?? this.auctions,
       );
 }

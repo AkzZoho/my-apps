@@ -20,7 +20,11 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
   final _amountCtrl = TextEditingController();
   final _upiCtrl = TextEditingController();
   final _participantEmailCtrl = TextEditingController();
+  final _commissionCtrl = TextEditingController(text: '5');
+  final _maxDiscountCtrl = TextEditingController(text: '30');
+  final _prizePaidCtrl = TextEditingController(text: '7');
 
+  String _kuriType = 'lelam';
   DateTime _startDate = DateTime.now();
   final List<AppUser> _selectedParticipants = [];
   String? _qrBase64;
@@ -34,6 +38,9 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
     _amountCtrl.dispose();
     _upiCtrl.dispose();
     _participantEmailCtrl.dispose();
+    _commissionCtrl.dispose();
+    _maxDiscountCtrl.dispose();
+    _prizePaidCtrl.dispose();
     super.dispose();
   }
 
@@ -140,6 +147,10 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
         upiId: upiId,
         qrBase64: _qrBase64,
         createdBy: user.id,
+        kuriType: _kuriType,
+        moopanCommissionPercent: double.tryParse(_commissionCtrl.text.trim()) ?? 5.0,
+        maxDiscountPercent: double.tryParse(_maxDiscountCtrl.text.trim()) ?? 30.0,
+        prizePaidWithinDays: int.tryParse(_prizePaidCtrl.text.trim()) ?? 7,
       );
       final data = await dataService.getData();
       ref.read(appDataProvider.notifier).updateState(data);
@@ -228,6 +239,88 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                   decoration: InputDecoration(
                     labelText: '${l10n.upiId} *',
                     hintText: 'name@upi',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Kuri type
+                Text(l10n.kuriType,
+                    style: TextStyle(color: c.textMuted, fontSize: 12)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ChoiceChip(
+                        label: Text(l10n.lelamKuri,
+                            style: TextStyle(fontSize: 12)),
+                        selected: _kuriType == 'lelam',
+                        onSelected: (_) => setState(() => _kuriType = 'lelam'),
+                        selectedColor: c.primary.withOpacity(0.2),
+                        side: BorderSide(
+                            color: _kuriType == 'lelam' ? c.primary : c.border),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ChoiceChip(
+                        label: Text(l10n.changathaKuri,
+                            style: TextStyle(fontSize: 12)),
+                        selected: _kuriType == 'changatha',
+                        onSelected: (_) =>
+                            setState(() => _kuriType = 'changatha'),
+                        selectedColor: c.primary.withOpacity(0.2),
+                        side: BorderSide(
+                            color: _kuriType == 'changatha'
+                                ? c.primary
+                                : c.border),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                // Commission / discount / prize days
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _commissionCtrl,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        style: TextStyle(color: c.text),
+                        decoration: InputDecoration(
+                          labelText: l10n.moopanCommissionLabel,
+                          hintText: '5',
+                          suffixText: '%',
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (_kuriType == 'lelam')
+                      Expanded(
+                        child: TextField(
+                          controller: _maxDiscountCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          style: TextStyle(color: c.text),
+                          decoration: InputDecoration(
+                            labelText: l10n.maxDiscountLabel,
+                            hintText: '30',
+                            suffixText: '%',
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _prizePaidCtrl,
+                  keyboardType: TextInputType.number,
+                  style: TextStyle(color: c.text),
+                  decoration: InputDecoration(
+                    labelText: l10n.prizePaidWithinLabel,
+                    hintText: '7',
+                    isDense: true,
                   ),
                 ),
                 const SizedBox(height: 12),

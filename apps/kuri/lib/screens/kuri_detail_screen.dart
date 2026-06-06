@@ -12,6 +12,7 @@ import '../models.dart';
 import '../providers/providers.dart';
 import '../services/data_service.dart';
 import '../widgets/common.dart';
+import 'kuri_auction_screen.dart';
 
 // ─── Receipt viewer helpers ───────────────────────────────────────────────────
 
@@ -191,6 +192,20 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
     }
   }
 
+  void _showDrawWinnerSheet(KuriPlan kuri, AppData data) {
+    showAppBottomSheet(
+      context,
+      _DrawWinnerSheet(
+        kuri: kuri,
+        data: data,
+        currentUserId: ref.read(currentUserProvider)?.id ?? '',
+      ),
+    ).then((_) async {
+      final fresh = await dataService.getData();
+      if (mounted) ref.read(appDataProvider.notifier).updateState(fresh);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -289,6 +304,30 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
+                          if (kuri.kuriType == 'lelam') ...[
+                            _NavTile(
+                              icon: Icons.gavel,
+                              label: l10n.auction,
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => KuriAuctionScreen(
+                                    kuri: kuri,
+                                    currentUserId: user?.id ?? '',
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          if (kuri.kuriType == 'changatha') ...[
+                            _NavTile(
+                              icon: Icons.casino_outlined,
+                              label: l10n.drawWinner,
+                              onTap: () => _showDrawWinnerSheet(kuri, data),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
                           _NavTile(
                             icon: Icons.settings_outlined,
                             label: l10n.settings,
@@ -886,6 +925,9 @@ class KuriSettingsScreen extends ConsumerStatefulWidget {
 class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
   late TextEditingController _upiCtrl;
   late TextEditingController _addEmailCtrl;
+  late TextEditingController _commissionCtrl;
+  late TextEditingController _maxDiscountCtrl;
+  late TextEditingController _prizePaidCtrl;
   String? _qrBase64;
   String? _qrFileName;
   bool _saving = false;
@@ -897,6 +939,11 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
     super.initState();
     _upiCtrl = TextEditingController(text: widget.kuri.upiId ?? '');
     _addEmailCtrl = TextEditingController();
+    _commissionCtrl = TextEditingController(
+        text: widget.kuri.moopanCommissionPercent.toStringAsFixed(widget.kuri.moopanCommissionPercent % 1 == 0 ? 0 : 1));
+    _maxDiscountCtrl = TextEditingController(
+        text: widget.kuri.maxDiscountPercent.toStringAsFixed(widget.kuri.maxDiscountPercent % 1 == 0 ? 0 : 1));
+    _prizePaidCtrl = TextEditingController(text: widget.kuri.prizePaidWithinDays.toString());
     _qrBase64 = widget.kuri.upiQrBase64;
   }
 
@@ -904,6 +951,9 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
   void dispose() {
     _upiCtrl.dispose();
     _addEmailCtrl.dispose();
+    _commissionCtrl.dispose();
+    _maxDiscountCtrl.dispose();
+    _prizePaidCtrl.dispose();
     super.dispose();
   }
 
@@ -990,12 +1040,24 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
     }
     setState(() => _saving = true);
     try {
-      await dataService.updateKuriPaymentInfo(
-        widget.kuri.id,
-        widget.currentUserId,
-        upiId,
-        _qrBase64,
-      );
+      await Future.wait([
+        dataService.updateKuriPaymentInfo(
+          widget.kuri.id,
+          widget.currentUserId,
+          upiId,
+          _qrBase64,
+        ),
+        dataService.updateKuriSettings(
+          widget.kuri.id,
+          widget.currentUserId,
+          moopanCommissionPercent:
+              double.tryParse(_commissionCtrl.text.trim()) ?? 5.0,
+          maxDiscountPercent:
+              double.tryParse(_maxDiscountCtrl.text.trim()) ?? 30.0,
+          prizePaidWithinDays:
+              int.tryParse(_prizePaidCtrl.text.trim()) ?? 7,
+        ),
+      ]);
       final data = await dataService.getData();
       ref.read(appDataProvider.notifier).updateState(data);
       if (mounted) showSuccess(context, _l10n!.settingsSaved);
@@ -1062,6 +1124,47 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
                 label: Text(l10n.removeQr, style: TextStyle(color: c.danger)),
               ),
             ],
+            const SizedBox(height: 20),
+            // Auction settings
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _commissionCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    style: TextStyle(color: c.text),
+                    decoration: InputDecoration(
+                      labelText: l10n.moopanCommissionLabel,
+                      suffixText: '%',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                if (widget.kuri.kuriType == 'lelam')
+                  Expanded(
+                    child: TextField(
+                      controller: _maxDiscountCtrl,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      style: TextStyle(color: c.text),
+                      decoration: InputDecoration(
+                        labelText: l10n.maxDiscountLabel,
+                        suffixText: '%',
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _prizePaidCtrl,
+              keyboardType: TextInputType.number,
+              style: TextStyle(color: c.text),
+              decoration: InputDecoration(
+                labelText: l10n.prizePaidWithinLabel,
+              ),
+            ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _saving ? null : _save,
@@ -1241,9 +1344,21 @@ class _MemberPaymentViewState extends ConsumerState<_MemberPaymentView> {
           }
         }
 
+        // Find open auction for this kuri (Lelam only)
+        final openAuction = kuri.kuriType == 'lelam'
+            ? data.auctions.where((a) => a.kuriId == kuri.id && a.status == 'open').firstOrNull
+            : null;
+
         return ListView(
           padding: const EdgeInsets.all(12),
           children: [
+            // Auction banner (Lelam Kuri, open auction)
+            if (openAuction != null)
+              AuctionMemberBanner(
+                kuri: kuri,
+                auction: openAuction,
+                currentUserId: widget.currentUserId,
+              ),
             // UPI Banner
             if (kuri.upiId != null && kuri.upiId!.isNotEmpty) _UpiBanner(kuri: kuri, l10n: l10n),
             const SizedBox(height: 8),
@@ -1271,6 +1386,7 @@ class _MemberPaymentViewState extends ConsumerState<_MemberPaymentView> {
                 isLocked: isLocked,
                 kuri: kuri,
                 currentUserId: widget.currentUserId,
+                data: data,
               );
             }),
           ],
@@ -1409,6 +1525,7 @@ class _MonthRow extends ConsumerStatefulWidget {
   final bool isLocked;
   final KuriPlan kuri;
   final String currentUserId;
+  final AppData data;
 
   const _MonthRow({
     required this.month,
@@ -1417,6 +1534,7 @@ class _MonthRow extends ConsumerStatefulWidget {
     required this.isLocked,
     required this.kuri,
     required this.currentUserId,
+    required this.data,
   });
 
   @override
@@ -1494,6 +1612,15 @@ class _MonthRowState extends ConsumerState<_MonthRow> {
                 filename: 'receipt_${widget.payment.month}.jpg',
               ),
             ],
+            // Winner chip for auction months
+            Builder(builder: (_) {
+              final closedAuction = widget.data.auctions.where((a) =>
+                  a.kuriId == widget.kuri.id &&
+                  a.month == widget.month &&
+                  a.status == 'closed').firstOrNull;
+              if (closedAuction == null) return const SizedBox.shrink();
+              return MonthWinnerChip(auction: closedAuction, data: widget.data);
+            }),
           ],
         ),
       ),
@@ -1721,5 +1848,157 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
         ],
       ),
     );
+  }
+}
+
+// ─── Draw Winner Sheet (Changatha Kuri) ───────────────────────────────────────
+
+class _DrawWinnerSheet extends ConsumerStatefulWidget {
+  final KuriPlan kuri;
+  final AppData data;
+  final String currentUserId;
+
+  const _DrawWinnerSheet({
+    required this.kuri,
+    required this.data,
+    required this.currentUserId,
+  });
+
+  @override
+  ConsumerState<_DrawWinnerSheet> createState() => _DrawWinnerSheetState();
+}
+
+class _DrawWinnerSheetState extends ConsumerState<_DrawWinnerSheet> {
+  String? _selectedMonth;
+  String? _selectedWinnerId;
+  bool _loading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
+    final data = ref.watch(appDataProvider).valueOrNull ?? widget.data;
+
+    final elapsedMonths = generateMonths(widget.kuri.startDate, includeFuture: false);
+    final closedMonths = data.auctions
+        .where((a) => a.kuriId == widget.kuri.id && a.status == 'closed')
+        .map((a) => a.month)
+        .toSet();
+    final availableMonths = elapsedMonths.where((m) => !closedMonths.contains(m)).toList();
+
+    final wonUserIds = data.auctions
+        .where((a) => a.kuriId == widget.kuri.id && a.status == 'closed' && a.winnerId != null)
+        .map((a) => a.winnerId!)
+        .toSet();
+    final eligibleParticipants = widget.kuri.participantUserIds
+        .where((id) => !wonUserIds.contains(id))
+        .map((id) => data.users.firstWhere(
+              (u) => u.id == id,
+              orElse: () => AppUser(id: id, name: id, email: ''),
+            ))
+        .toList();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text(
+                l10n.drawWinner,
+                style: TextStyle(
+                    color: c.text, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: Icon(Icons.close, color: c.textMuted),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (availableMonths.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'All months already have winners.',
+                style: TextStyle(color: c.textMuted),
+                textAlign: TextAlign.center,
+              ),
+            )
+          else ...[
+            DropdownButtonFormField<String>(
+              value: _selectedMonth,
+              decoration: InputDecoration(labelText: 'Month'),
+              dropdownColor: c.surface,
+              style: TextStyle(color: c.text),
+              items: availableMonths
+                  .map((m) => DropdownMenuItem(
+                        value: m,
+                        child: Text(formatMonthKey(m)),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedMonth = v),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _selectedWinnerId,
+              decoration: InputDecoration(labelText: l10n.selectWinner),
+              dropdownColor: c.surface,
+              style: TextStyle(color: c.text),
+              items: eligibleParticipants
+                  .map((p) => DropdownMenuItem(
+                        value: p.id,
+                        child: Text(p.name),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedWinnerId = v),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: (_loading ||
+                      _selectedMonth == null ||
+                      _selectedWinnerId == null)
+                  ? null
+                  : _declare,
+              child: _loading
+                  ? SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                          color: c.primaryFg, strokeWidth: 2),
+                    )
+                  : Text(l10n.drawWinner),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _declare() async {
+    if (_selectedMonth == null || _selectedWinnerId == null) return;
+    final l10n = AppL10n(ref.read(localeProvider));
+    setState(() => _loading = true);
+    try {
+      await dataService.declareChangathaWinner(
+        widget.kuri.id,
+        _selectedMonth!,
+        widget.currentUserId,
+        _selectedWinnerId!,
+      );
+      final fresh = await dataService.getData();
+      ref.read(appDataProvider.notifier).updateState(fresh);
+      if (mounted) {
+        Navigator.pop(context);
+        showSuccess(context, '${l10n.winner} ${l10n.drawWinner}!');
+      }
+    } catch (e) {
+      if (mounted) showError(context, '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 }
