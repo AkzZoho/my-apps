@@ -1090,6 +1090,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 --------------------------------------------------------------------------------
 args
+logging
 
 Copyright 2013, the Dart project authors. 
 
@@ -1762,6 +1763,7 @@ limitations under the License.
 cross_file
 flutter_lints
 flutter_plugin_android_lifecycle
+go_router
 google_identity_services_web
 google_sign_in
 google_sign_in_android
