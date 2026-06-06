@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'firebase_options.dart';
+import 'router.dart';
 import 'theme.dart';
-import 'screens/auth_screen.dart';
-import 'screens/kuri_list_screen.dart';
 import 'providers/providers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  usePathUrlStrategy(); // clean URLs without the # fragment
   try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   } catch (_) {}
@@ -31,22 +32,22 @@ class _KuriAppState extends ConsumerState<KuriApp> {
       await ref.read(appDataProvider.notifier).load();
       final data = ref.read(appDataProvider).valueOrNull;
       if (data != null) await ref.read(currentUserProvider.notifier).loadFromPrefs(data);
+      // Signal go_router that auth state is now reliable
+      ref.read(initDoneProvider.notifier).state = true;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
-    final user = ref.watch(currentUserProvider);
-    return MaterialApp(
+    final router = ref.watch(routerProvider);
+    return MaterialApp.router(
       title: 'Kuri',
       theme: buildLightTheme(),
       darkTheme: buildDarkTheme(),
       themeMode: themeMode,
       debugShowCheckedModeBanner: false,
-      home: user == null
-          ? const AuthScreen(appName: 'Kuri', appSubtitle: 'Track your Kuris')
-          : const KuriListScreen(),
+      routerConfig: router,
     );
   }
 }

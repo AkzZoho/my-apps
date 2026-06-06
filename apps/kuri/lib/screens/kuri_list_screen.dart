@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../theme.dart';
 import '../l10n.dart';
 import '../models.dart';
@@ -8,8 +9,6 @@ import '../providers/providers.dart';
 import '../widgets/common.dart';
 import '../widgets/ios_install_banner.dart';
 import '../services/data_service.dart';
-import 'kuri_detail_screen.dart';
-import 'create_kuri_screen.dart';
 
 class KuriListScreen extends ConsumerStatefulWidget {
   const KuriListScreen({super.key});
@@ -163,12 +162,8 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
                       final missingUpi = isCreator && (kuri.upiId == null || kuri.upiId!.isEmpty);
 
                       return AppCard(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => KuriDetailScreen(kuriId: kuri.id),
-                          ),
-                        ).then((_) => ref.read(appDataProvider.notifier).refresh()),
+                        onTap: () => context.push('/kuri/${kuri.id}')
+                            .then((_) => ref.read(appDataProvider.notifier).refresh()),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -225,10 +220,8 @@ class _KuriListScreenState extends ConsumerState<KuriListScreen> {
             ],
           ),
           floatingActionButton: FloatingActionButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CreateKuriScreen()),
-            ).then((_) => ref.read(appDataProvider.notifier).refresh()),
+            onPressed: () => context.push('/kuri/new')
+                .then((_) => ref.read(appDataProvider.notifier).refresh()),
             child: const Icon(Icons.add),
           ),
         );

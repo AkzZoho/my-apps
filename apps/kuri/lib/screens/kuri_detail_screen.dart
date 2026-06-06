@@ -11,6 +11,7 @@ import '../l10n.dart';
 import '../models.dart';
 import '../providers/providers.dart';
 import '../services/data_service.dart';
+import 'package:go_router/go_router.dart';
 import '../widgets/common.dart';
 import 'kuri_auction_screen.dart';
 
@@ -182,7 +183,7 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
       final data = await dataService.getData();
       ref.read(appDataProvider.notifier).updateState(data);
       if (mounted) {
-        Navigator.pop(context);
+        context.pop();
         showSuccess(context, _l10n!.kuriDeleted);
       }
     } catch (e) {
@@ -293,30 +294,14 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
                           _NavTile(
                             icon: Icons.receipt_long_outlined,
                             label: l10n.receipts,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => KuriReceiptsScreen(
-                                  kuri: kuri,
-                                  currentUserId: user?.id ?? '',
-                                ),
-                              ),
-                            ),
+                            onTap: () => context.push('/kuri/${widget.kuriId}/receipts'),
                           ),
                           const SizedBox(height: 8),
                           if (kuri.kuriType == 'lelam') ...[
                             _NavTile(
                               icon: Icons.gavel,
                               label: l10n.auction,
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => KuriAuctionScreen(
-                                    kuri: kuri,
-                                    currentUserId: user?.id ?? '',
-                                  ),
-                                ),
-                              ),
+                              onTap: () => context.push('/kuri/${widget.kuriId}/auction'),
                             ),
                             const SizedBox(height: 8),
                           ],
@@ -331,15 +316,7 @@ class _KuriDetailScreenState extends ConsumerState<KuriDetailScreen> {
                           _NavTile(
                             icon: Icons.settings_outlined,
                             label: l10n.settings,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => KuriSettingsScreen(
-                                  kuri: kuri,
-                                  currentUserId: user?.id ?? '',
-                                ),
-                              ),
-                            ),
+                            onTap: () => context.push('/kuri/${widget.kuriId}/settings'),
                           ),
                           const SizedBox(height: 12),
                         ],
