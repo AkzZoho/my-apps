@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,7 +27,32 @@ class KuriAuctionScreen extends ConsumerStatefulWidget {
 
 class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
   bool _loading = false;
+  bool _refreshing = false;
   AppL10n? _l10n;
+  Timer? _autoRefreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    if (_refreshing || !mounted) return;
+    setState(() => _refreshing = true);
+    try {
+      final fresh = await dataService.getData();
+      if (mounted) ref.read(appDataProvider.notifier).updateState(fresh);
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
 
   Future<void> _openAuction(String month) async {
     setState(() => _loading = true);
@@ -75,10 +101,33 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
       loading: _loading,
       child: Scaffold(
         backgroundColor: c.bg,
-        appBar: AppBar(title: Text(l10n.auction)),
+        appBar: AppBar(
+          title: Text(l10n.auction),
+          actions: [
+            if (_refreshing)
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: c.primary),
+                ),
+              )
+            else
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Refresh',
+                onPressed: _refresh,
+              ),
+          ],
+        ),
         body: data == null
             ? Center(child: CircularProgressIndicator(color: c.primary))
-            : _buildBody(context, c, l10n, data),
+            : RefreshIndicator(
+                onRefresh: _refresh,
+                color: c.primary,
+                child: _buildBody(context, c, l10n, data),
+              ),
       ),
     );
   }
