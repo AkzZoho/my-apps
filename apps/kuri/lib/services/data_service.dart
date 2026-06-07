@@ -72,7 +72,18 @@ class DataService {
       (u) => u.email.trim().toLowerCase() == cleaned,
       orElse: () => AppUser(id: '', name: '', email: ''),
     );
-    if (existing.id.isNotEmpty) return existing;
+    if (existing.id.isNotEmpty) {
+      // If the user was pre-created as a placeholder (name == email prefix),
+      // update to their real name now that they've signed up.
+      final placeholder = cleaned.split('@').first;
+      if (name.trim().isNotEmpty && existing.name == placeholder) {
+        final updated = existing.copyWith(name: name.trim());
+        final updatedUsers = data.users.map((u) => u.id == existing.id ? updated : u).toList();
+        await saveData(data.copyWith(users: updatedUsers));
+        return updated;
+      }
+      return existing;
+    }
 
     final user = AppUser(
       id: makeId('usr'),
@@ -81,6 +92,24 @@ class DataService {
     );
     final newData = data.copyWith(users: [...data.users, user]);
     await saveData(newData);
+    return user;
+  }
+
+  // Finds a user by email, or creates a placeholder entry if they haven't
+  // signed up yet. The name is derived from the email prefix and will be
+  // updated to their real name when they first log in.
+  Future<AppUser> ensureUserByEmail(String email) async {
+    final data = await getData();
+    final cleaned = email.trim().toLowerCase();
+    final existing = data.users.firstWhere(
+      (u) => u.email.trim().toLowerCase() == cleaned,
+      orElse: () => AppUser(id: '', name: '', email: ''),
+    );
+    if (existing.id.isNotEmpty) return existing;
+    // Create placeholder — name will be updated when they sign up
+    final placeholder = cleaned.split('@').first;
+    final user = AppUser(id: makeId('usr'), name: placeholder, email: cleaned);
+    await saveData(data.copyWith(users: [...data.users, user]));
     return user;
   }
 

@@ -88,21 +88,21 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
     }
   }
 
-  void _addParticipantByEmail(AppData data) {
+  Future<void> _addParticipantByEmail() async {
     final email = _participantEmailCtrl.text.trim().toLowerCase();
     if (email.isEmpty) return;
-    final user = data.users.firstWhere(
-      (u) => u.email == email,
-      orElse: () => AppUser(id: '', name: '', email: ''),
-    );
-    if (user.id.isEmpty) {
-      showError(context, '${_l10n!.noUserFound} $email');
-      return;
+    setState(() => _loading = true);
+    try {
+      final user = await dataService.ensureUserByEmail(email);
+      if (!_selectedParticipants.any((p) => p.id == user.id)) {
+        setState(() => _selectedParticipants.add(user));
+      }
+      _participantEmailCtrl.clear();
+    } catch (e) {
+      if (mounted) showError(context, '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    if (!_selectedParticipants.any((p) => p.id == user.id)) {
-      setState(() => _selectedParticipants.add(user));
-    }
-    _participantEmailCtrl.clear();
   }
 
   Future<void> _submit() async {
@@ -425,12 +425,12 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
                           hintText: 'user@example.com',
                           isDense: true,
                         ),
-                        onSubmitted: (_) => _addParticipantByEmail(data),
+                        onSubmitted: (_) => _addParticipantByEmail(),
                       ),
                     ),
                     const SizedBox(width: 8),
                     IconButton(
-                      onPressed: () => _addParticipantByEmail(data),
+                      onPressed: () => _addParticipantByEmail(),
                       icon: Icon(Icons.add_circle, color: c.primary),
                     ),
                   ],

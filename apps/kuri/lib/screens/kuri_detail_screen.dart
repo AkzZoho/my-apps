@@ -941,14 +941,8 @@ class _KuriSettingsScreenState extends ConsumerState<KuriSettingsScreen> {
     try {
       final appData = ref.read(appDataProvider).valueOrNull;
       if (appData == null) return;
-      final user = appData.users.firstWhere(
-        (u) => u.email.trim().toLowerCase() == email,
-        orElse: () => AppUser(id: '', name: '', email: ''),
-      );
-      if (user.id.isEmpty) {
-        if (mounted) showError(context, '${_l10n!.noUserFound} $email');
-        return;
-      }
+      // ensureUserByEmail creates a placeholder if the person hasn't signed up yet
+      final user = await dataService.ensureUserByEmail(email);
       final kuri = appData.kuris.firstWhere((k) => k.id == widget.kuri.id, orElse: () => widget.kuri);
       if (kuri.participantUserIds.contains(user.id)) return;
       await dataService.updateKuriParticipants(
