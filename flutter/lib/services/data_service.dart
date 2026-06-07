@@ -40,11 +40,22 @@ class DataService {
   Future<AppUser> createUser(String name, String email) async {
     final data = await getData();
     final cleaned = email.trim().toLowerCase();
-    final existing = data.users.firstWhere(
+    final existingIdx = data.users.indexWhere(
       (u) => u.email.trim().toLowerCase() == cleaned,
-      orElse: () => AppUser(id: '', name: '', email: ''),
     );
-    if (existing.id.isNotEmpty) return existing;
+    if (existingIdx >= 0) {
+      final existing = data.users[existingIdx];
+      // Update placeholder name if user is signing up for the first time
+      final placeholder = cleaned.split('@')[0];
+      if (existing.name == placeholder && name.trim() != placeholder) {
+        final updated = AppUser(id: existing.id, name: name.trim(), email: cleaned);
+        final updatedUsers = List<AppUser>.from(data.users);
+        updatedUsers[existingIdx] = updated;
+        await saveData(data.copyWith(users: updatedUsers));
+        return updated;
+      }
+      return existing;
+    }
 
     final user = AppUser(
       id: makeId('usr'),
@@ -53,6 +64,22 @@ class DataService {
     );
     final newData = data.copyWith(users: [...data.users, user]);
     await saveData(newData);
+    return user;
+  }
+
+  Future<AppUser> ensureUserByEmail(String email) async {
+    final data = await getData();
+    final cleaned = email.trim().toLowerCase();
+    final existing = data.users.firstWhere(
+      (u) => u.email.trim().toLowerCase() == cleaned,
+      orElse: () => AppUser(id: '', name: '', email: ''),
+    );
+    if (existing.id.isNotEmpty) return existing;
+
+    // Create a placeholder so participants can be added before they sign up
+    final placeholder = cleaned.split('@')[0];
+    final user = AppUser(id: makeId('usr'), name: placeholder, email: cleaned);
+    await saveData(data.copyWith(users: [...data.users, user]));
     return user;
   }
 

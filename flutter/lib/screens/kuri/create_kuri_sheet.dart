@@ -79,21 +79,21 @@ class _CreateKuriSheetState extends ConsumerState<CreateKuriSheet> {
     }
   }
 
-  void _addParticipantByEmail(AppData data) {
+  Future<void> _addParticipantByEmail(AppData data) async {
     final email = _participantEmailCtrl.text.trim().toLowerCase();
     if (email.isEmpty) return;
-    final user = data.users.firstWhere(
-      (u) => u.email == email,
-      orElse: () => AppUser(id: '', name: '', email: ''),
-    );
-    if (user.id.isEmpty) {
-      showError(context, 'No user found with email: $email');
-      return;
+    setState(() => _loading = true);
+    try {
+      final user = await dataService.ensureUserByEmail(email);
+      if (!_selectedParticipants.any((p) => p.id == user.id)) {
+        setState(() => _selectedParticipants.add(user));
+      }
+      _participantEmailCtrl.clear();
+    } catch (e) {
+      if (mounted) showError(context, '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    if (!_selectedParticipants.any((p) => p.id == user.id)) {
-      setState(() => _selectedParticipants.add(user));
-    }
-    _participantEmailCtrl.clear();
   }
 
   Future<void> _submit() async {
