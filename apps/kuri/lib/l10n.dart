@@ -156,6 +156,11 @@ class AppL10n {
     'approve': 'Approve',
     'reject': 'Reject',
     'uploadQrCode': 'Upload QR Code',
+    'uploadProofForMember': 'Upload Proof for Member',
+    'markAsPaid': 'Mark as Paid',
+    'paymentRecorded': 'Payment recorded!',
+    'receiptOptional': 'Receipt (optional)',
+    'transactionIdOptional': 'Transaction ID (optional)',
     'noUserFound': 'No user found with email:',
     'nameIsRequired': 'Name is required.',
     'amountRequired': 'Amount is required.',
@@ -318,6 +323,11 @@ class AppL10n {
     'approve': 'അംഗീകരിക്കുക',
     'reject': 'നിരസിക്കുക',
     'uploadQrCode': 'QR കോഡ് അപ്‌ലോഡ് ചെയ്യൂ',
+    'uploadProofForMember': 'അംഗത്തിനായി തെളിവ് അപ്‌ലോഡ് ചെയ്യൂ',
+    'markAsPaid': 'അടച്ചതായി രേഖപ്പെടുത്തൂ',
+    'paymentRecorded': 'പേമെന്റ് രേഖപ്പെടുത്തി!',
+    'receiptOptional': 'രസീത് (ഐച്ഛികം)',
+    'transactionIdOptional': 'ഇടപാട് ID (ഐച്ഛികം)',
     'noUserFound': 'ഈ ഇമെയിലിൽ ഉപയോക്താവ് കണ്ടെത്തിയില്ല:',
     'nameIsRequired': 'പേര് ആവശ്യമാണ്.',
     'amountRequired': 'തുക ആവശ്യമാണ്.',
@@ -478,8 +488,13 @@ class AppL10n {
   String get review             => _t('review');
   String get approve            => _t('approve');
   String get reject             => _t('reject');
-  String get uploadQrCode       => _t('uploadQrCode');
-  String get noUserFound        => _t('noUserFound');
+  String get uploadQrCode           => _t('uploadQrCode');
+  String get uploadProofForMember   => _t('uploadProofForMember');
+  String get markAsPaid             => _t('markAsPaid');
+  String get paymentRecorded        => _t('paymentRecorded');
+  String get receiptOptional        => _t('receiptOptional');
+  String get transactionIdOptional  => _t('transactionIdOptional');
+  String get noUserFound            => _t('noUserFound');
   String get nameIsRequired     => _t('nameIsRequired');
   String get amountRequired     => _t('amountRequired');
   String get validAmount        => _t('validAmount');

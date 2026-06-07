@@ -793,6 +793,36 @@ class _KuriReceiptsScreenState extends ConsumerState<KuriReceiptsScreen> {
                                     child: Text(l10n.review),
                                   ),
                                 ),
+                              // Admin: upload proof on behalf of member
+                              if (payment.id.isEmpty &&
+                                  widget.currentUserId == widget.kuri.createdBy)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: OutlinedButton.icon(
+                                    icon: const Icon(Icons.upload_file_outlined, size: 16),
+                                    label: Text(l10n.uploadProofForMember,
+                                        style: const TextStyle(fontSize: 12)),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 4),
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed: () => showAppBottomSheet(
+                                      context,
+                                      _AdminProofSheet(
+                                        kuri: widget.kuri,
+                                        month: month,
+                                        member: participant,
+                                        adminId: widget.currentUserId,
+                                        onDone: () {
+                                          dataService.getData().then((fresh) {
+                                            ref.read(appDataProvider.notifier).updateState(fresh);
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               // Inline review form
                               if (isReviewing) ...[
                                 const SizedBox(height: 8),
@@ -1971,5 +2001,147 @@ class _DrawWinnerSheetState extends ConsumerState<_DrawWinnerSheet> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+}
+
+// ─── Admin: upload payment proof on behalf of a member ───────────────────────
+
+class _AdminProofSheet extends ConsumerStatefulWidget {
+  final KuriPlan kuri;
+  final String month;
+  final AppUser member;
+  final String adminId;
+  final VoidCallback onDone;
+
+  const _AdminProofSheet({
+    required this.kuri,
+    required this.month,
+    required this.member,
+    required this.adminId,
+    required this.onDone,
+  });
+
+  @override
+  ConsumerState<_AdminProofSheet> createState() => _AdminProofSheetState();
+}
+
+class _AdminProofSheetState extends ConsumerState<_AdminProofSheet> {
+  final _txnCtrl = TextEditingController();
+  String? _receiptBase64;
+  String? _receiptFileName;
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _txnCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickReceipt() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.bytes != null) {
+          setState(() {
+            _receiptBase64 = DataService.encodeImageToBase64(file.bytes!, file.name);
+            _receiptFileName = file.name;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) showError(context, '$e');
+    }
+  }
+
+  Future<void> _submit() async {
+    setState(() => _loading = true);
+    try {
+      await dataService.adminSubmitPayment(
+        kuriId: widget.kuri.id,
+        memberId: widget.member.id,
+        adminId: widget.adminId,
+        month: widget.month,
+        amount: widget.kuri.contributionAmount,
+        transactionId: _txnCtrl.text.trim(),
+        receiptBase64: _receiptBase64 ?? '',
+        receiptFileName: _receiptFileName ?? '',
+      );
+      widget.onDone();
+      if (mounted) {
+        Navigator.pop(context);
+        final l10n = AppL10n(ref.read(localeProvider));
+        showSuccess(context, l10n.paymentRecorded);
+      }
+    } catch (e) {
+      if (mounted) showError(context, '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.uploadProofForMember,
+                      style: TextStyle(color: c.text, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '${widget.member.name} · ${formatMonthKey(widget.month)}',
+                      style: TextStyle(color: c.textMuted, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.close, color: c.textMuted),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _txnCtrl,
+            style: TextStyle(color: c.text),
+            decoration: InputDecoration(labelText: l10n.transactionIdOptional),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.image_outlined),
+            label: Text(_receiptBase64 != null ? l10n.receiptUploaded : l10n.receiptOptional),
+            onPressed: _pickReceipt,
+          ),
+          if (_receiptBase64 != null) ...[
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: _receiptThumbnail(context, _receiptBase64!, filename: _receiptFileName ?? 'receipt.jpg'),
+            ),
+          ],
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _loading ? null : _submit,
+            style: ElevatedButton.styleFrom(backgroundColor: c.green),
+            child: _loading
+                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : Text(l10n.markAsPaid, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -559,6 +559,45 @@ class _ReceiptsTabState extends ConsumerState<_ReceiptsTab> {
                                   child: const Text('Review'),
                                 ),
                               ),
+                            // Admin: upload proof on behalf of member
+                            if (payment.id.isEmpty &&
+                                widget.currentUserId == widget.kuri.createdBy)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: OutlinedButton.icon(
+                                  icon: const Icon(Icons.upload_file_outlined, size: 16),
+                                  label: const Text('Upload Proof',
+                                      style: TextStyle(fontSize: 12)),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  onPressed: () => showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    backgroundColor: surfaceColor,
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                                    ),
+                                    builder: (_) => Padding(
+                                      padding: EdgeInsets.only(
+                                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                                      ),
+                                      child: _AdminProofSheet(
+                                        kuri: widget.kuri,
+                                        month: month,
+                                        member: participant,
+                                        adminId: widget.currentUserId,
+                                        onDone: () async {
+                                          final fresh = await dataService.getData();
+                                          ref.read(appDataProvider.notifier).updateState(fresh);
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             // Inline review form
                             if (isReviewing) ...[
                               const SizedBox(height: 8),
@@ -638,23 +677,24 @@ class _ReceiptsTabState extends ConsumerState<_ReceiptsTab> {
     }
   }
 
-  Widget _buildReceiptImage(String base64Data, {bool fullWidth = false}) {
-    try {
-      Uint8List bytes;
-      if (base64Data.contains(',')) {
-        bytes = base64Decode(base64Data.split(',').last);
-      } else {
-        bytes = base64Decode(base64Data);
-      }
-      return Image.memory(
-        bytes,
-        width: fullWidth ? double.infinity : 80,
-        height: fullWidth ? null : 60,
-        fit: fullWidth ? BoxFit.contain : BoxFit.cover,
-      );
-    } catch (_) {
-      return const Icon(Icons.broken_image, color: textDim);
+}
+
+Widget _buildReceiptImage(String base64Data, {bool fullWidth = false}) {
+  try {
+    Uint8List bytes;
+    if (base64Data.contains(',')) {
+      bytes = base64Decode(base64Data.split(',').last);
+    } else {
+      bytes = base64Decode(base64Data);
     }
+    return Image.memory(
+      bytes,
+      width: fullWidth ? double.infinity : 80,
+      height: fullWidth ? null : 60,
+      fit: fullWidth ? BoxFit.contain : BoxFit.cover,
+    );
+  } catch (_) {
+    return const Icon(Icons.broken_image, color: textDim);
   }
 }
 
@@ -1304,6 +1344,145 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
                     child: CircularProgressIndicator(color: primaryFg, strokeWidth: 2),
                   )
                 : const Text('Submit Payment'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Admin: upload payment proof on behalf of a member ───────────────────────
+
+class _AdminProofSheet extends ConsumerStatefulWidget {
+  final KuriPlan kuri;
+  final String month;
+  final AppUser member;
+  final String adminId;
+  final VoidCallback onDone;
+
+  const _AdminProofSheet({
+    required this.kuri,
+    required this.month,
+    required this.member,
+    required this.adminId,
+    required this.onDone,
+  });
+
+  @override
+  ConsumerState<_AdminProofSheet> createState() => _AdminProofSheetState();
+}
+
+class _AdminProofSheetState extends ConsumerState<_AdminProofSheet> {
+  final _txnCtrl = TextEditingController();
+  String? _receiptBase64;
+  String? _receiptFileName;
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _txnCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickReceipt() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.bytes != null) {
+          setState(() {
+            _receiptBase64 = DataService.encodeImageToBase64(file.bytes!, file.name);
+            _receiptFileName = file.name;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) showError(context, '$e');
+    }
+  }
+
+  Future<void> _submit() async {
+    setState(() => _loading = true);
+    try {
+      await dataService.adminSubmitPayment(
+        kuriId: widget.kuri.id,
+        memberId: widget.member.id,
+        adminId: widget.adminId,
+        month: widget.month,
+        amount: widget.kuri.contributionAmount,
+        transactionId: _txnCtrl.text.trim(),
+        receiptBase64: _receiptBase64 ?? '',
+        receiptFileName: _receiptFileName ?? '',
+      );
+      widget.onDone();
+      if (mounted) {
+        Navigator.pop(context);
+        showSuccess(context, 'Payment recorded!');
+      }
+    } catch (e) {
+      if (mounted) showError(context, '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Upload Proof for Member',
+                      style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '${widget.member.name} · ${formatMonthKey(widget.month)}',
+                      style: const TextStyle(color: textMuted, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: textMuted),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _txnCtrl,
+            style: const TextStyle(color: textColor),
+            decoration: const InputDecoration(labelText: 'Transaction ID (optional)'),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.image_outlined),
+            label: Text(_receiptBase64 != null ? 'Receipt uploaded' : 'Receipt (optional)'),
+            onPressed: _pickReceipt,
+          ),
+          if (_receiptBase64 != null) ...[
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: _buildReceiptImage(_receiptBase64!),
+            ),
+          ],
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _loading ? null : _submit,
+            style: ElevatedButton.styleFrom(backgroundColor: greenColor),
+            child: _loading
+                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text('Mark as Paid', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

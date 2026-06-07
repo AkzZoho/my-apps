@@ -430,6 +430,60 @@ class DataService {
     return payment;
   }
 
+  Future<KuriPayment> adminSubmitPayment({
+    required String kuriId,
+    required String memberId,
+    required String adminId,
+    required String month,
+    required double amount,
+    String transactionId = '',
+    String receiptBase64 = '',
+    String receiptFileName = '',
+  }) async {
+    final data = await getData();
+    final kuri = data.kuris.firstWhere(
+      (k) => k.id == kuriId,
+      orElse: () => KuriPlan(
+        id: '', name: '', contributionAmount: 0, currency: 'INR', startDate: '',
+        participantUserIds: [], notificationConfig: NotificationConfig(rules: []),
+        createdBy: '', createdAt: '',
+      ),
+    );
+    if (kuri.id.isEmpty) throw Exception('Kuri plan not found.');
+    if (kuri.createdBy != adminId) throw Exception('Only the admin can upload on behalf of members.');
+
+    final existing = data.payments.firstWhere(
+      (p) => p.kuriId == kuriId && p.userId == memberId && p.month == month,
+      orElse: () => KuriPayment(id: '', kuriId: '', userId: '', month: '', transactionId: '', amount: 0, status: '', submittedAt: ''),
+    );
+    if (existing.id.isNotEmpty && existing.status == 'approved') {
+      throw Exception('Payment for this month is already approved.');
+    }
+
+    final now = nowIso();
+    final payment = KuriPayment(
+      id: makeId('pay'),
+      kuriId: kuriId,
+      userId: memberId,
+      month: month,
+      transactionId: transactionId.trim().toUpperCase(),
+      amount: amount,
+      receiptBase64: receiptBase64.isEmpty ? null : receiptBase64,
+      receiptFileName: receiptFileName.isEmpty ? null : receiptFileName,
+      status: 'approved',
+      submittedAt: now,
+      reviewedAt: now,
+      reviewedBy: adminId,
+    );
+
+    final updatedPayments = data.payments
+        .where((p) => !(p.kuriId == kuriId && p.userId == memberId && p.month == month))
+        .toList()
+      ..add(payment);
+    await saveData(data.copyWith(payments: updatedPayments));
+    return payment;
+  }
+
   Future<KuriPayment> reviewPayment(
     String paymentId,
     String actorId,
