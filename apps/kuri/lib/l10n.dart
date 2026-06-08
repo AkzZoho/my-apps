@@ -161,6 +161,7 @@ class AppL10n {
     'paymentRecorded': 'Payment recorded!',
     'receiptOptional': 'Receipt (optional)',
     'transactionIdOptional': 'Transaction ID (optional)',
+    'bidForMember': 'Bid for Member',
     'noUserFound': 'No user found with email:',
     'nameIsRequired': 'Name is required.',
     'amountRequired': 'Amount is required.',
@@ -328,6 +329,7 @@ class AppL10n {
     'paymentRecorded': 'പേമെന്റ് രേഖപ്പെടുത്തി!',
     'receiptOptional': 'രസീത് (ഐച്ഛികം)',
     'transactionIdOptional': 'ഇടപാട് ID (ഐച്ഛികം)',
+    'bidForMember': 'അംഗത്തിനായി ബിഡ് ചെയ്യൂ',
     'noUserFound': 'ഈ ഇമെയിലിൽ ഉപയോക്താവ് കണ്ടെത്തിയില്ല:',
     'nameIsRequired': 'പേര് ആവശ്യമാണ്.',
     'amountRequired': 'തുക ആവശ്യമാണ്.',
@@ -494,6 +496,7 @@ class AppL10n {
   String get paymentRecorded        => _t('paymentRecorded');
   String get receiptOptional        => _t('receiptOptional');
   String get transactionIdOptional  => _t('transactionIdOptional');
+  String get bidForMember           => _t('bidForMember');
   String get noUserFound            => _t('noUserFound');
   String get nameIsRequired     => _t('nameIsRequired');
   String get amountRequired     => _t('amountRequired');

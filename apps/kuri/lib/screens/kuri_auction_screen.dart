@@ -350,7 +350,70 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          if (auction.bids.isEmpty)
+          // Moopan sees all participants with per-member bid/status
+          if (widget.currentUserId == kuri.createdBy) ...[
+            ...kuri.participantUserIds.map((uid) {
+              final user = data.users.firstWhere(
+                (u) => u.id == uid,
+                orElse: () => AppUser(id: uid, name: uid, email: ''),
+              );
+              final existingBid = auction.bids.firstWhere(
+                (b) => b.userId == uid,
+                orElse: () => AuctionBid(userId: '', discountAmount: 0, bidAt: ''),
+              );
+              final hasBid = existingBid.userId.isNotEmpty;
+              final alreadyWon = data.auctions.any((a) =>
+                  a.kuriId == kuri.id && a.status == 'closed' && a.winnerId == uid);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    AvatarWidget(name: user.name, size: 26),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(user.name,
+                          style: TextStyle(color: c.text, fontSize: 13)),
+                    ),
+                    if (hasBid)
+                      Text(
+                        '₹${existingBid.discountAmount.toInt()}',
+                        style: TextStyle(
+                            color: c.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13),
+                      )
+                    else if (alreadyWon)
+                      Text(l10n.winner,
+                          style: TextStyle(color: c.textMuted, fontSize: 12))
+                    else
+                      TextButton(
+                        onPressed: () => showAppBottomSheet(
+                          context,
+                          _AdminBidSheet(
+                            auction: auction,
+                            kuri: kuri,
+                            member: user,
+                            pool: pool,
+                            onDone: () async {
+                              final fresh = await dataService.getData();
+                              if (mounted) ref.read(appDataProvider.notifier).updateState(fresh);
+                            },
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(l10n.placeBid,
+                            style: TextStyle(fontSize: 12, color: c.primary)),
+                      ),
+                  ],
+                ),
+              );
+            }),
+            Divider(color: c.border, height: 16),
+          ] else if (auction.bids.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
@@ -389,39 +452,32 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
             }),
             Divider(color: c.border, height: 16),
           ],
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => showAppBottomSheet(
-                    context,
-                    _BidSheet(
-                      auction: auction,
-                      kuri: kuri,
-                      userId: widget.currentUserId,
-                      pool: pool,
-                    ),
-                  ).then((_) async {
-                    final fresh = await dataService.getData();
-                    if (mounted) {
-                      ref.read(appDataProvider.notifier).updateState(fresh);
-                    }
-                  }),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: Text(l10n.placeBid),
+          // Moopan: close auction only; member: place their own bid
+          if (widget.currentUserId == kuri.createdBy)
+            ElevatedButton.icon(
+              onPressed: () => _closeAuction(auction, data),
+              icon: const Icon(Icons.lock_outline, size: 16),
+              label: Text(l10n.closeAuction),
+            )
+          else
+            OutlinedButton.icon(
+              onPressed: () => showAppBottomSheet(
+                context,
+                _BidSheet(
+                  auction: auction,
+                  kuri: kuri,
+                  userId: widget.currentUserId,
+                  pool: pool,
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => _closeAuction(auction, data),
-                  icon: const Icon(Icons.lock_outline, size: 16),
-                  label: Text(l10n.closeAuction,
-                      overflow: TextOverflow.ellipsis),
-                ),
-              ),
-            ],
-          ),
+              ).then((_) async {
+                final fresh = await dataService.getData();
+                if (mounted) {
+                  ref.read(appDataProvider.notifier).updateState(fresh);
+                }
+              }),
+              icon: const Icon(Icons.add, size: 16),
+              label: Text(l10n.placeBid),
+            ),
         ],
       ),
     );
@@ -953,6 +1009,150 @@ class _InfoRow extends StatelessWidget {
                   fontSize: compact ? 11 : 12,
                   fontWeight: FontWeight.w500),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Admin: place a bid on behalf of a member ────────────────────────────────
+
+class _AdminBidSheet extends ConsumerStatefulWidget {
+  final KuriAuction auction;
+  final KuriPlan kuri;
+  final AppUser member;
+  final double pool;
+  final VoidCallback onDone;
+
+  const _AdminBidSheet({
+    required this.auction,
+    required this.kuri,
+    required this.member,
+    required this.pool,
+    required this.onDone,
+  });
+
+  @override
+  ConsumerState<_AdminBidSheet> createState() => _AdminBidSheetState();
+}
+
+class _AdminBidSheetState extends ConsumerState<_AdminBidSheet> {
+  final _amountCtrl = TextEditingController();
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.auction.bids.firstWhere(
+      (b) => b.userId == widget.member.id,
+      orElse: () => AuctionBid(userId: '', discountAmount: 0, bidAt: ''),
+    );
+    if (existing.userId.isNotEmpty) {
+      _amountCtrl.text = existing.discountAmount.toInt().toString();
+    }
+  }
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final l10n = AppL10n(ref.read(localeProvider));
+    final amount = double.tryParse(_amountCtrl.text.trim());
+    if (amount == null || amount <= 0) {
+      showError(context, l10n.validAmount);
+      return;
+    }
+    final maxDiscount = widget.pool * widget.kuri.maxDiscountPercent / 100;
+    if (amount > maxDiscount) {
+      showError(context, l10n.bidExceedsMax);
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      await dataService.placeBid(widget.auction.id, widget.member.id, amount);
+      widget.onDone();
+      if (mounted) {
+        Navigator.pop(context);
+        showSuccess(context, l10n.yourBid);
+      }
+    } catch (e) {
+      if (mounted) showError(context, '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
+    final maxDiscount = widget.pool * widget.kuri.maxDiscountPercent / 100;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.bidForMember,
+                      style: TextStyle(
+                          color: c.text,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '${widget.member.name} · ${formatMonthKey(widget.auction.month)}',
+                      style: TextStyle(color: c.textMuted, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.close, color: c.textMuted),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Max: ₹${maxDiscount.toInt()} (${widget.kuri.maxDiscountPercent.toInt()}% of ${l10n.pool})',
+            style: TextStyle(color: c.textMuted, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _amountCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+            ],
+            style: TextStyle(color: c.text),
+            decoration: InputDecoration(
+              labelText: l10n.discountAmount,
+              prefixText: '₹',
+            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: _loading ? null : _submit,
+            child: _loading
+                ? SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                        color: c.primaryFg, strokeWidth: 2),
+                  )
+                : Text(l10n.placeBid),
           ),
         ],
       ),
