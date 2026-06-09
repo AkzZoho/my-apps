@@ -68,6 +68,47 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
     }
   }
 
+  Future<void> _confirmReopen(BuildContext context, AppL10n l10n, KuriAuction auction) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dCtx) {
+        final cc = dCtx.colors;
+        return AlertDialog(
+          backgroundColor: cc.surface,
+          title: Text(l10n.reopenAuction,
+              style: TextStyle(color: cc.warn, fontWeight: FontWeight.bold)),
+          content: Text(
+            '${formatMonthKey(auction.month)} — Winner and prize data will be cleared. Bids will be kept.',
+            style: TextStyle(color: cc.text),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dCtx, false),
+              child: Text(l10n.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dCtx, true),
+              child: Text(l10n.reopenAuction,
+                  style: TextStyle(color: cc.warn, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _loading = true);
+    try {
+      await dataService.reopenAuction(auction.id, widget.currentUserId);
+      final fresh = await dataService.getData();
+      ref.read(appDataProvider.notifier).updateState(fresh);
+      if (mounted) showSuccess(context, l10n.auctionOpen);
+    } catch (e) {
+      if (mounted) showError(context, '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   Future<void> _closeAuction(KuriAuction auction, AppData data) async {
     final winnerId = await showAppBottomSheet<String>(
       context,
@@ -180,7 +221,7 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
           const SizedBox(height: 20),
           SectionTitle(l10n.auctionHistory),
           ...closedAuctions
-              .map((a) => _buildClosedAuctionCard(context, c, l10n, data, a)),
+              .map((a) => _buildClosedAuctionCard(context, c, l10n, data, widget.kuri, a)),
         ],
       ],
     );
@@ -508,6 +549,7 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
     AppColors c,
     AppL10n l10n,
     AppData data,
+    KuriPlan kuri,
     KuriAuction auction,
   ) {
     final winner = auction.winnerId != null
@@ -546,10 +588,24 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
               children: [
                 Icon(Icons.emoji_events, color: c.warn, size: 16),
                 const SizedBox(width: 6),
-                Text(
-                  '${l10n.winner}: ${winner.name}',
-                  style: TextStyle(color: c.text, fontSize: 13),
+                Expanded(
+                  child: Text(
+                    '${l10n.winner}: ${winner.name}',
+                    style: TextStyle(color: c.text, fontSize: 13),
+                  ),
                 ),
+                if (widget.currentUserId == kuri.createdBy)
+                  TextButton.icon(
+                    onPressed: () => _confirmReopen(context, l10n, auction),
+                    icon: Icon(Icons.lock_open_outlined, size: 14, color: c.warn),
+                    label: Text(l10n.reopenAuction,
+                        style: TextStyle(fontSize: 12, color: c.warn)),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 4),

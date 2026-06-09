@@ -561,6 +561,31 @@ class DataService {
     return updated;
   }
 
+  Future<KuriAuction> reopenAuction(String auctionId, String actorId) async {
+    final data = await getData();
+    final idx = data.auctions.indexWhere((a) => a.id == auctionId);
+    if (idx < 0) throw Exception('Auction not found.');
+    final auction = data.auctions[idx];
+    if (auction.status != 'closed') throw Exception('Auction is not closed.');
+    final kuri = data.kuris.firstWhere((k) => k.id == auction.kuriId,
+        orElse: () => KuriPlan(id: '', name: '', contributionAmount: 0, currency: 'INR', startDate: '', participantUserIds: [], notificationConfig: NotificationConfig(rules: []), createdBy: '', createdAt: ''));
+    if (kuri.id.isEmpty) throw Exception('Kuri not found.');
+    if (kuri.createdBy != actorId) throw Exception('Only the Moopan can reopen an auction.');
+
+    final reopened = KuriAuction(
+      id: auction.id,
+      kuriId: auction.kuriId,
+      month: auction.month,
+      status: 'open',
+      bids: auction.bids,
+      createdAt: auction.createdAt,
+    );
+    final updatedAuctions = List<KuriAuction>.from(data.auctions);
+    updatedAuctions[idx] = reopened;
+    await saveData(data.copyWith(auctions: updatedAuctions));
+    return reopened;
+  }
+
   Future<KuriAuction> declareChangathaWinner(
       String kuriId, String month, String actorId, String winnerId) async {
     final data = await getData();
