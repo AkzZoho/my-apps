@@ -375,12 +375,32 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
                           style: TextStyle(color: c.text, fontSize: 13)),
                     ),
                     if (hasBid)
-                      Text(
-                        '₹${existingBid.discountAmount.toInt()}',
-                        style: TextStyle(
-                            color: c.primary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13),
+                      TextButton(
+                        onPressed: () => showAppBottomSheet(
+                          context,
+                          _AdminBidSheet(
+                            auction: auction,
+                            kuri: kuri,
+                            member: user,
+                            pool: pool,
+                            onDone: () async {
+                              final fresh = await dataService.getData();
+                              if (mounted) ref.read(appDataProvider.notifier).updateState(fresh);
+                            },
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          '₹${existingBid.discountAmount.toInt()} ✎',
+                          style: TextStyle(
+                              color: c.primary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13),
+                        ),
                       )
                     else if (alreadyWon)
                       Text(l10n.winner,
