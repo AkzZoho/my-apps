@@ -1936,7 +1936,7 @@ class _DrawWinnerSheetState extends ConsumerState<_DrawWinnerSheet> {
               dropdownColor: c.surface,
               style: TextStyle(color: c.text),
               items: availableMonths
-                  .map((m) => DropdownMenuItem(
+                  .map((m) => DropdownMenuItem<String>(
                         value: m,
                         child: Text(formatMonthKey(m)),
                       ))
@@ -1950,7 +1950,7 @@ class _DrawWinnerSheetState extends ConsumerState<_DrawWinnerSheet> {
               dropdownColor: c.surface,
               style: TextStyle(color: c.text),
               items: eligibleParticipants
-                  .map((p) => DropdownMenuItem(
+                  .map((p) => DropdownMenuItem<String>(
                         value: p.id,
                         child: Text(p.name),
                       ))
