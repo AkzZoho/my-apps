@@ -1,11 +1,12 @@
 # Kuri App — Version History
 
-## Current Version: 1.0.1+7
+## Current Version: 1.0.1+8
 
 ---
 
 | Version Code | Version Name | Track          | Date       | Notes                                      |
 |:------------:|:------------:|----------------|------------|--------------------------------------------|
+| +8           | 1.0.1        | Closed Testing | 2026-06-10 | Fix Google Sign-In (Play App Signing OAuth client) |
 | +7           | 1.0.1        | Closed Testing | 2026-06-10 | Light theme icon, latest feature fixes     |
 | +6           | 1.0.1        | —              | 2026-06-10 | Skipped (not uploaded)                     |
 | +5           | 1.0.1        | Closed Testing | 2026-06-10 | google-services.json fix for Android login |
