@@ -444,6 +444,10 @@ class DataService {
         orElse: () => KuriPlan(id: '', name: '', contributionAmount: 0, currency: 'INR', startDate: '', participantUserIds: [], notificationConfig: NotificationConfig(rules: []), createdBy: '', createdAt: ''));
     if (kuri.id.isEmpty) throw Exception('Kuri not found.');
     if (kuri.createdBy != actorId) throw Exception('Only the Moopan can open an auction.');
+    final firstMonth = kuri.startDate.length >= 7 ? kuri.startDate.substring(0, 7) : '';
+    if (firstMonth.isNotEmpty && month == firstMonth) {
+      throw Exception('Month 1 goes to the Moopan — auction starts from month 2.');
+    }
     if (data.auctions.any((a) => a.kuriId == kuriId && a.month == month && a.status == 'open')) {
       throw Exception('An auction is already open for this month.');
     }
@@ -489,6 +493,14 @@ class DataService {
     final alreadyWon = data.auctions.any((a) =>
         a.kuriId == auction.kuriId && a.status == 'closed' && a.winnerId == userId);
     if (alreadyWon) throw Exception('You have already won an auction in this Kuri.');
+    final hasPaid = data.payments.any((p) =>
+        p.kuriId == auction.kuriId &&
+        p.month == auction.month &&
+        p.userId == userId &&
+        p.status == 'approved');
+    if (!hasPaid) {
+      throw Exception('Payment for ${auction.month} not found. Pay first to participate in the auction.');
+    }
     final maxDiscount = kuri.contributionAmount * kuri.participantUserIds.length * kuri.maxDiscountPercent / 100;
     if (discountAmount > maxDiscount) {
       throw Exception('Bid of ₹${discountAmount.toInt()} exceeds max allowed ₹${maxDiscount.toInt()}.');

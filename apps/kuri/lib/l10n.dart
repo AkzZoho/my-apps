@@ -163,6 +163,10 @@ class AppL10n {
     'transactionIdOptional': 'Transaction ID (optional)',
     'bidForMember': 'Bid for Member',
     'reopenAuction': 'Reopen Auction',
+    'firstMonthMoopan': 'Month 1 — goes to Moopan (no auction)',
+    'notPaidExcluded': 'Not paid — excluded',
+    'mustPayToParticipate': 'You haven\'t paid for this month. Pay first to participate in the auction.',
+    'defaultedZero': 'Defaulted (₹0)',
     'noUserFound': 'No user found with email:',
     'nameIsRequired': 'Name is required.',
     'amountRequired': 'Amount is required.',
@@ -332,6 +336,10 @@ class AppL10n {
     'transactionIdOptional': 'ഇടപാട് ID (ഐച്ഛികം)',
     'bidForMember': 'അംഗത്തിനായി ബിഡ് ചെയ്യൂ',
     'reopenAuction': 'ലേലം വീണ്ടും തുറക്കൂ',
+    'firstMonthMoopan': 'മാസം 1 — മൂപ്പന് (ലേലം ഇല്ല)',
+    'notPaidExcluded': 'പണം അടച്ചിട്ടില്ല — ഒഴിവാക്കി',
+    'mustPayToParticipate': 'ഈ മാസം പണം അടച്ചിട്ടില്ല. ലേലത്തിൽ പങ്കെടുക്കാൻ ആദ്യം പണം അടക്കൂ.',
+    'defaultedZero': 'ഡിഫോൾട്ട് (₹0)',
     'noUserFound': 'ഈ ഇമെയിലിൽ ഉപയോക്താവ് കണ്ടെത്തിയില്ല:',
     'nameIsRequired': 'പേര് ആവശ്യമാണ്.',
     'amountRequired': 'തുക ആവശ്യമാണ്.',
@@ -500,6 +508,10 @@ class AppL10n {
   String get transactionIdOptional  => _t('transactionIdOptional');
   String get bidForMember           => _t('bidForMember');
   String get reopenAuction          => _t('reopenAuction');
+  String get firstMonthMoopan       => _t('firstMonthMoopan');
+  String get notPaidExcluded        => _t('notPaidExcluded');
+  String get mustPayToParticipate   => _t('mustPayToParticipate');
+  String get defaultedZero          => _t('defaultedZero');
   String get noUserFound            => _t('noUserFound');
   String get nameIsRequired     => _t('nameIsRequired');
   String get amountRequired     => _t('amountRequired');

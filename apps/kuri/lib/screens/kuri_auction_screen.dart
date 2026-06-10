@@ -187,8 +187,12 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
         .map((a) => a.month)
         .toSet();
 
+    final firstMonth = kuri.startDate.length >= 7 ? kuri.startDate.substring(0, 7) : null;
+
+    // Month 1 goes to Moopan — skip it when looking for the next auction month
     String? activeMonth;
     for (final m in elapsedMonths) {
+      if (m == firstMonth) continue;
       if (!closedMonths.contains(m)) {
         activeMonth = m;
         break;
@@ -210,11 +214,17 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
 
     final closedAuctions = kuriAuctions.where((a) => a.status == 'closed').toList();
 
+    final showFirstMonthCard = firstMonth != null && elapsedMonths.contains(firstMonth);
+
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
         _buildInfoCard(context, c, l10n, kuri),
         const SizedBox(height: 12),
+        if (showFirstMonthCard) ...[
+          _buildFirstMonthCard(context, c, l10n, firstMonth!),
+          const SizedBox(height: 12),
+        ],
         _buildActiveSection(
             context, c, l10n, data, kuri, activeMonth, openAuction, hasOpenAuction),
         if (closedAuctions.isNotEmpty) ...[
@@ -272,6 +282,48 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
             value: '${kuri.prizePaidWithinDays} days',
             c: c,
           ),
+        ],
+      ),
+    );
+  }
+
+  bool _hasPaidForMonth(AppData data, KuriPlan kuri, String month, String userId) {
+    return data.payments.any((p) =>
+        p.kuriId == kuri.id &&
+        p.month == month &&
+        p.userId == userId &&
+        p.status == 'approved');
+  }
+
+  Widget _buildFirstMonthCard(
+      BuildContext context, AppColors c, AppL10n l10n, String month) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: c.border),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.person_outline, color: c.primary, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(formatMonthKey(month),
+                    style: TextStyle(
+                        color: c.text,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14)),
+                const SizedBox(height: 2),
+                Text(l10n.firstMonthMoopan,
+                    style: TextStyle(color: c.textMuted, fontSize: 12)),
+              ],
+            ),
+          ),
+          StatusBadge(label: 'Moopan', color: c.primary),
         ],
       ),
     );
@@ -394,6 +446,7 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
           // Moopan sees all participants with per-member bid/status
           if (widget.currentUserId == kuri.createdBy) ...[
             ...kuri.participantUserIds.map((uid) {
+              final hasPaid = _hasPaidForMonth(data, kuri, auction.month, uid);
               final user = data.users.firstWhere(
                 (u) => u.id == uid,
                 orElse: () => AppUser(id: uid, name: uid, email: ''),
@@ -415,7 +468,13 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
                       child: Text(user.name,
                           style: TextStyle(color: c.text, fontSize: 13)),
                     ),
-                    if (hasBid)
+                    if (!hasPaid)
+                      Text(l10n.defaultedZero,
+                          style: TextStyle(
+                              color: c.warn,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12))
+                    else if (hasBid)
                       TextButton(
                         onPressed: () => showAppBottomSheet(
                           context,
@@ -520,25 +579,48 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
               icon: const Icon(Icons.lock_outline, size: 16),
               label: Text(l10n.closeAuction),
             )
-          else
-            OutlinedButton.icon(
-              onPressed: () => showAppBottomSheet(
-                context,
-                _BidSheet(
-                  auction: auction,
-                  kuri: kuri,
-                  userId: widget.currentUserId,
-                  pool: pool,
+          else ...[
+            if (!_hasPaidForMonth(data, kuri, auction.month, widget.currentUserId)) ...[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: c.warn.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: c.warn.withOpacity(0.3)),
                 ),
-              ).then((_) async {
-                final fresh = await dataService.getData();
-                if (mounted) {
-                  ref.read(appDataProvider.notifier).updateState(fresh);
-                }
-              }),
-              icon: const Icon(Icons.add, size: 16),
-              label: Text(l10n.placeBid),
-            ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: c.warn, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l10n.mustPayToParticipate,
+                        style: TextStyle(color: c.warn, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else
+              OutlinedButton.icon(
+                onPressed: () => showAppBottomSheet(
+                  context,
+                  _BidSheet(
+                    auction: auction,
+                    kuri: kuri,
+                    userId: widget.currentUserId,
+                    pool: pool,
+                  ),
+                ).then((_) async {
+                  final fresh = await dataService.getData();
+                  if (mounted) {
+                    ref.read(appDataProvider.notifier).updateState(fresh);
+                  }
+                }),
+                icon: const Icon(Icons.add, size: 16),
+                label: Text(l10n.placeBid),
+              ),
+          ],
         ],
       ),
     );
