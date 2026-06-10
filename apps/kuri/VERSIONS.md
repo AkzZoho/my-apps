@@ -1,12 +1,13 @@
 # Kuri App — Version History
 
-## Current Version: 1.0.1+9
+## Current Version: 1.0.1+10
 
 ---
 
 | Version Code | Version Name | Track          | Date       | Notes                                      |
 |:------------:|:------------:|----------------|------------|--------------------------------------------|
-| +9           | 1.0.1        | Closed Testing | 2026-06-10 | Fix Google Sign-In (OAuth client in correct Firebase project) |
+| +10          | 1.0.1        | Closed Testing | 2026-06-10 | Fix Google Sign-In (correct Play App Signing SHA-1) |
+| +9           | 1.0.1        | —              | 2026-06-10 | Skipped (already used)                     |
 | +8           | 1.0.1        | Closed Testing | 2026-06-10 | Fix Google Sign-In (Play App Signing OAuth client) |
 | +7           | 1.0.1        | Closed Testing | 2026-06-10 | Light theme icon, latest feature fixes     |
 | +6           | 1.0.1        | —              | 2026-06-10 | Skipped (not uploaded)                     |
