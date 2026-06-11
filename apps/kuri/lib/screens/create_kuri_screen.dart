@@ -45,24 +45,12 @@ class _CreateKuriScreenState extends ConsumerState<CreateKuriScreen> {
   }
 
   Future<void> _pickDate(BuildContext context) async {
-    final c = context.colors;
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
       initialDate: _startDate,
       firstDate: DateTime(now.year - 5),
       lastDate: DateTime(now.year + 5),
-      builder: (ctx, child) => Theme(
-        data: ThemeData.dark().copyWith(
-          colorScheme: ColorScheme.dark(
-            primary: c.primary,
-            onPrimary: c.primaryFg,
-            surface: c.surface,
-          ),
-          dialogBackgroundColor: c.surface,
-        ),
-        child: child!,
-      ),
     );
     if (picked != null) setState(() => _startDate = picked);
   }
