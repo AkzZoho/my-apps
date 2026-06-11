@@ -1,12 +1,13 @@
 # Kuri App — Version History
 
-## Current Version: 1.0.1+10
+## Current Version: 1.0.1+11
 
 ---
 
 | Version Code | Version Name | Track          | Date       | Notes                                      |
 |:------------:|:------------:|----------------|------------|--------------------------------------------|
-| +10          | 1.0.1        | Closed Testing | 2026-06-10 | Fix Google Sign-In (correct Play App Signing SHA-1) |
+| +11          | 1.0.1        | Closed Testing | 2026-06-11 | Fix light-theme date picker, Malayalam translation corrections |
+| +10          | 1.0.1        | —              | 2026-06-10 | Skipped (already used)                     |
 | +9           | 1.0.1        | —              | 2026-06-10 | Skipped (already used)                     |
 | +8           | 1.0.1        | Closed Testing | 2026-06-10 | Fix Google Sign-In (Play App Signing OAuth client) |
 | +7           | 1.0.1        | Closed Testing | 2026-06-10 | Light theme icon, latest feature fixes     |
@@ -19,6 +20,13 @@
 ---
 
 ## Release Notes
+
+### 1.0.1+11 — Closed Testing
+- Fixed date picker white-on-white in light theme
+- Corrected Malayalam translations (Sign Out, Close Auction, Defaulted label, and more)
+- Month 1 goes to Moopan — auction starts from month 2
+- Unpaid members excluded from bidding (shown as "കുടിശ്ശിക")
+- Moopan can open auction regardless of member payment status
 
 ### 1.0.1+7 — Closed Testing
 - Light theme app icon
