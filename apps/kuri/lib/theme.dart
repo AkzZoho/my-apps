@@ -324,6 +324,34 @@ ThemeData _buildTheme(Brightness brightness, AppColors c) {
       thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.primaryFg : c.textDim),
       trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.primary : c.border),
     ),
+    datePickerTheme: DatePickerThemeData(
+      backgroundColor: c.surface,
+      headerBackgroundColor: c.primary,
+      headerForegroundColor: c.primaryFg,
+      dayForegroundColor: WidgetStateProperty.resolveWith((s) {
+        if (s.contains(WidgetState.selected)) return c.primaryFg;
+        if (s.contains(WidgetState.disabled)) return c.textDim;
+        return c.text;
+      }),
+      yearForegroundColor: WidgetStateProperty.resolveWith((s) {
+        if (s.contains(WidgetState.selected)) return c.primaryFg;
+        if (s.contains(WidgetState.disabled)) return c.textDim;
+        return c.text;
+      }),
+      todayForegroundColor: WidgetStateProperty.resolveWith((s) {
+        if (s.contains(WidgetState.selected)) return c.primaryFg;
+        return c.primary;
+      }),
+      dayBackgroundColor: WidgetStateProperty.resolveWith((s) {
+        if (s.contains(WidgetState.selected)) return c.primary;
+        return Colors.transparent;
+      }),
+      yearBackgroundColor: WidgetStateProperty.resolveWith((s) {
+        if (s.contains(WidgetState.selected)) return c.primary;
+        return Colors.transparent;
+      }),
+      dividerColor: c.border,
+    ),
   );
 }
 
