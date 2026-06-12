@@ -1688,6 +1688,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   final _txnCtrl = TextEditingController();
   String? _receiptBase64;
   String? _receiptFileName;
+  String? _receiptError;
   bool _loading = false;
   AppL10n? _l10n;
 
@@ -1707,6 +1708,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
           setState(() {
             _receiptBase64 = encoded;
             _receiptFileName = file.name;
+            _receiptError = null;
           });
         }
       }
@@ -1718,7 +1720,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   Future<void> _submit() async {
     final txnId = _txnCtrl.text.trim();
     if (_receiptBase64 == null) {
-      showError(context, _l10n!.receiptRequired);
+      setState(() => _receiptError = _l10n!.receiptRequired);
       return;
     }
 
@@ -1803,13 +1805,21 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
           const SizedBox(height: 12),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              foregroundColor: _receiptBase64 != null ? c.green : c.primary,
-              side: BorderSide(color: _receiptBase64 != null ? c.green : c.border),
+              foregroundColor: _receiptError != null ? c.danger : (_receiptBase64 != null ? c.green : c.primary),
+              side: BorderSide(color: _receiptError != null ? c.danger : (_receiptBase64 != null ? c.green : c.border)),
             ),
             onPressed: _pickReceipt,
             icon: Icon(_receiptBase64 != null ? Icons.check_circle : Icons.upload_file),
             label: Text(_receiptFileName ?? l10n.uploadReceipt),
           ),
+          if (_receiptError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 4),
+              child: Text(
+                _receiptError!,
+                style: TextStyle(color: c.danger, fontSize: 12),
+              ),
+            ),
           if (_receiptBase64 != null) ...[
             const SizedBox(height: 8),
             Row(

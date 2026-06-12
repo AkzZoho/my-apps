@@ -797,7 +797,6 @@ class DataService {
     );
     if (kuri.id.isEmpty) throw Exception('Kuri plan not found.');
     if (receiptBase64.isEmpty) throw Exception('Receipt is required.');
-    if (transactionId.trim().isEmpty) throw Exception('Transaction ID is required.');
 
     final existing = data.payments.firstWhere(
       (p) => p.kuriId == kuriId && p.userId == userId && p.month == month,
