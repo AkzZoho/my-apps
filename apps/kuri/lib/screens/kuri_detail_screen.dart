@@ -1713,7 +1713,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
         }
       }
     } catch (e) {
-      if (mounted) showError(context, '${_l10n!.failedToPickFile} $e');
+      if (mounted) setState(() => _receiptError = '${_l10n!.failedToPickFile} $e');
     }
   }
 
@@ -1742,7 +1742,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
         showSuccess(context, _l10n!.paymentSubmitted);
       }
     } catch (e) {
-      if (mounted) showError(context, '$e');
+      if (mounted) setState(() => _receiptError = '$e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -1883,6 +1883,7 @@ class _DrawWinnerSheetState extends ConsumerState<_DrawWinnerSheet> {
   String? _selectedMonth;
   String? _selectedWinnerId;
   bool _loading = false;
+  String? _error;
 
   @override
   Widget build(BuildContext context) {
@@ -1968,6 +1969,11 @@ class _DrawWinnerSheetState extends ConsumerState<_DrawWinnerSheet> {
               onChanged: (v) => setState(() => _selectedWinnerId = v),
             ),
             const SizedBox(height: 20),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(_error!, style: TextStyle(color: c.danger, fontSize: 13)),
+              ),
             ElevatedButton(
               onPressed: (_loading ||
                       _selectedMonth == null ||
@@ -1992,7 +1998,7 @@ class _DrawWinnerSheetState extends ConsumerState<_DrawWinnerSheet> {
   Future<void> _declare() async {
     if (_selectedMonth == null || _selectedWinnerId == null) return;
     final l10n = AppL10n(ref.read(localeProvider));
-    setState(() => _loading = true);
+    setState(() { _loading = true; _error = null; });
     try {
       await dataService.declareChangathaWinner(
         widget.kuri.id,
@@ -2007,7 +2013,7 @@ class _DrawWinnerSheetState extends ConsumerState<_DrawWinnerSheet> {
         showSuccess(context, '${l10n.winner} ${l10n.drawWinner}!');
       }
     } catch (e) {
-      if (mounted) showError(context, '$e');
+      if (mounted) setState(() => _error = '$e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -2040,6 +2046,7 @@ class _AdminProofSheetState extends ConsumerState<_AdminProofSheet> {
   String? _receiptBase64;
   String? _receiptFileName;
   bool _loading = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -2060,12 +2067,12 @@ class _AdminProofSheetState extends ConsumerState<_AdminProofSheet> {
         }
       }
     } catch (e) {
-      if (mounted) showError(context, '$e');
+      if (mounted) setState(() => _error = '$e');
     }
   }
 
   Future<void> _submit() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _error = null; });
     try {
       await dataService.adminSubmitPayment(
         kuriId: widget.kuri.id,
@@ -2084,7 +2091,7 @@ class _AdminProofSheetState extends ConsumerState<_AdminProofSheet> {
         showSuccess(context, l10n.paymentRecorded);
       }
     } catch (e) {
-      if (mounted) showError(context, '$e');
+      if (mounted) setState(() => _error = '$e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -2143,6 +2150,11 @@ class _AdminProofSheetState extends ConsumerState<_AdminProofSheet> {
             ),
           ],
           const SizedBox(height: 16),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(_error!, style: TextStyle(color: c.danger, fontSize: 13)),
+            ),
           ElevatedButton(
             onPressed: _loading ? null : _submit,
             style: ElevatedButton.styleFrom(backgroundColor: c.green),

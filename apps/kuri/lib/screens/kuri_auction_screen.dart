@@ -740,6 +740,7 @@ class _BidSheet extends ConsumerStatefulWidget {
 class _BidSheetState extends ConsumerState<_BidSheet> {
   final _amountCtrl = TextEditingController();
   bool _loading = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -752,15 +753,15 @@ class _BidSheetState extends ConsumerState<_BidSheet> {
     final raw = _amountCtrl.text.trim();
     final amount = double.tryParse(raw);
     if (amount == null || amount <= 0) {
-      showError(context, l10n.validAmount);
+      setState(() => _error = l10n.validAmount);
       return;
     }
     final maxDiscount = widget.pool * widget.kuri.maxDiscountPercent / 100;
     if (amount > maxDiscount) {
-      showError(context, l10n.bidExceedsMax);
+      setState(() => _error = l10n.bidExceedsMax);
       return;
     }
-    setState(() => _loading = true);
+    setState(() { _loading = true; _error = null; });
     try {
       await dataService.placeBid(widget.auction.id, widget.userId, amount);
       final fresh = await dataService.getData();
@@ -770,7 +771,7 @@ class _BidSheetState extends ConsumerState<_BidSheet> {
         showSuccess(context, l10n.yourBid);
       }
     } catch (e) {
-      if (mounted) showError(context, '$e');
+      if (mounted) setState(() => _error = '$e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -817,12 +818,18 @@ class _BidSheetState extends ConsumerState<_BidSheet> {
               FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
             ],
             style: TextStyle(color: c.text),
+            onChanged: (_) { if (_error != null) setState(() => _error = null); },
             decoration: InputDecoration(
               labelText: l10n.discountAmount,
               prefixText: '₹',
             ),
           ),
-          const SizedBox(height: 20),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_error!, style: TextStyle(color: c.danger, fontSize: 13)),
+            ),
+          const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _loading ? null : _submit,
             child: _loading
@@ -1198,6 +1205,7 @@ class _AdminBidSheet extends ConsumerStatefulWidget {
 class _AdminBidSheetState extends ConsumerState<_AdminBidSheet> {
   final _amountCtrl = TextEditingController();
   bool _loading = false;
+  String? _error;
 
   @override
   void initState() {
@@ -1221,15 +1229,15 @@ class _AdminBidSheetState extends ConsumerState<_AdminBidSheet> {
     final l10n = AppL10n(ref.read(localeProvider));
     final amount = double.tryParse(_amountCtrl.text.trim());
     if (amount == null || amount <= 0) {
-      showError(context, l10n.validAmount);
+      setState(() => _error = l10n.validAmount);
       return;
     }
     final maxDiscount = widget.pool * widget.kuri.maxDiscountPercent / 100;
     if (amount > maxDiscount) {
-      showError(context, l10n.bidExceedsMax);
+      setState(() => _error = l10n.bidExceedsMax);
       return;
     }
-    setState(() => _loading = true);
+    setState(() { _loading = true; _error = null; });
     try {
       await dataService.placeBid(widget.auction.id, widget.member.id, amount);
       widget.onDone();
@@ -1238,7 +1246,7 @@ class _AdminBidSheetState extends ConsumerState<_AdminBidSheet> {
         showSuccess(context, l10n.yourBid);
       }
     } catch (e) {
-      if (mounted) showError(context, '$e');
+      if (mounted) setState(() => _error = '$e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -1295,12 +1303,18 @@ class _AdminBidSheetState extends ConsumerState<_AdminBidSheet> {
               FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
             ],
             style: TextStyle(color: c.text),
+            onChanged: (_) { if (_error != null) setState(() => _error = null); },
             decoration: InputDecoration(
               labelText: l10n.discountAmount,
               prefixText: '₹',
             ),
           ),
-          const SizedBox(height: 20),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_error!, style: TextStyle(color: c.danger, fontSize: 13)),
+            ),
+          const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _loading ? null : _submit,
             child: _loading
