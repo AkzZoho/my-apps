@@ -222,7 +222,7 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
         _buildInfoCard(context, c, l10n, kuri),
         const SizedBox(height: 12),
         if (showFirstMonthCard) ...[
-          _buildFirstMonthCard(context, c, l10n, firstMonth!),
+          _buildFirstMonthCard(context, c, l10n, firstMonth!, kuri),
           const SizedBox(height: 12),
         ],
         _buildActiveSection(
@@ -296,34 +296,83 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
   }
 
   Widget _buildFirstMonthCard(
-      BuildContext context, AppColors c, AppL10n l10n, String month) {
+      BuildContext context, AppColors c, AppL10n l10n, String month, KuriPlan kuri) {
+    final pool = kuri.contributionAmount * kuri.participantUserIds.length;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: c.border),
+        border: Border.all(color: c.primaryMid),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(Icons.person_outline, color: c.primary, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: c.primaryLight,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+            ),
+            child: Row(
               children: [
-                Text(formatMonthKey(month),
-                    style: TextStyle(
-                        color: c.text,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14)),
-                const SizedBox(height: 2),
-                Text(l10n.firstMonthMoopan,
-                    style: TextStyle(color: c.textMuted, fontSize: 12)),
+                Icon(Icons.calendar_month, color: c.primary, size: 15),
+                const SizedBox(width: 6),
+                Text(
+                  formatMonthKey(month),
+                  style: TextStyle(color: c.primary, fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+                const Spacer(),
+                StatusBadge(label: l10n.creator, color: c.primary),
               ],
             ),
           ),
-          StatusBadge(label: 'Moopan', color: c.primary),
+          // Body
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.person, color: c.primary, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l10n.firstMonthMoopan,
+                        style: TextStyle(color: c.text, fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'The first month prize is awarded directly to the Moopan — no auction is held.',
+                  style: TextStyle(color: c.textMuted, fontSize: 12),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: c.primaryLight,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(l10n.prizeAmount,
+                          style: TextStyle(color: c.primary, fontSize: 13)),
+                      const Spacer(),
+                      Text(
+                        '₹${pool.toInt()}',
+                        style: TextStyle(
+                            color: c.primary, fontWeight: FontWeight.w700, fontSize: 15),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
