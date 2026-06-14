@@ -229,9 +229,12 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
             context, c, l10n, data, kuri, activeMonth, openAuction, hasOpenAuction),
         if (closedAuctions.isNotEmpty) ...[
           const SizedBox(height: 20),
+          if (widget.currentUserId == kuri.createdBy)
+            _buildWinningsSummary(context, c, l10n, data, kuri, closedAuctions),
+          const SizedBox(height: 12),
           SectionTitle(l10n.auctionHistory),
           ...closedAuctions
-              .map((a) => _buildClosedAuctionCard(context, c, l10n, data, widget.kuri, a)),
+              .map((a) => _buildClosedAuctionCard(context, c, l10n, data, kuri, a)),
         ],
       ],
     );
@@ -629,29 +632,56 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
               label: Text(l10n.closeAuction),
             )
           else ...[
-            if (!_hasPaidForMonth(data, kuri, auction.month, widget.currentUserId)) ...[
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: c.warn.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: c.warn.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber_rounded, color: c.warn, size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        l10n.mustPayToParticipate,
-                        style: TextStyle(color: c.warn, fontSize: 12),
+            Builder(builder: (context) {
+              final alreadyWon = data.auctions.any((a) =>
+                  a.kuriId == kuri.id &&
+                  a.status == 'closed' &&
+                  a.winnerId == widget.currentUserId);
+              if (alreadyWon) {
+                return Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: c.primaryLight,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: c.primaryMid.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.emoji_events, color: c.primary, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l10n.auctionAlreadyWon,
+                          style: TextStyle(color: c.primary, fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ] else
-              OutlinedButton.icon(
+                    ],
+                  ),
+                );
+              }
+              if (!_hasPaidForMonth(data, kuri, auction.month, widget.currentUserId)) {
+                return Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: c.warn.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: c.warn.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: c.warn, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l10n.mustPayToParticipate,
+                          style: TextStyle(color: c.warn, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return OutlinedButton.icon(
                 onPressed: () => showAppBottomSheet(
                   context,
                   _BidSheet(
@@ -662,13 +692,12 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
                   ),
                 ).then((_) async {
                   final fresh = await dataService.getData();
-                  if (mounted) {
-                    ref.read(appDataProvider.notifier).updateState(fresh);
-                  }
+                  if (mounted) ref.read(appDataProvider.notifier).updateState(fresh);
                 }),
                 icon: const Icon(Icons.add, size: 16),
                 label: Text(l10n.placeBid),
-              ),
+              );
+            }),
           ],
         ],
       ),
@@ -683,17 +712,27 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
     KuriPlan kuri,
     KuriAuction auction,
   ) {
+    final isMoopan = widget.currentUserId == kuri.createdBy;
     final winner = auction.winnerId != null
         ? data.users.firstWhere(
             (u) => u.id == auction.winnerId,
-            orElse: () =>
-                AppUser(id: auction.winnerId!, name: auction.winnerId!, email: ''),
+            orElse: () => AppUser(id: auction.winnerId!, name: auction.winnerId!, email: ''),
           )
         : null;
 
+    // Unpaid members for this month (Moopan view only)
+    final unpaidMembers = isMoopan
+        ? kuri.participantUserIds
+            .where((uid) => !_hasPaidForMonth(data, kuri, auction.month, uid))
+            .map((uid) => data.users.firstWhere(
+                  (u) => u.id == uid,
+                  orElse: () => AppUser(id: uid, name: uid, email: ''),
+                ))
+            .toList()
+        : <AppUser>[];
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(10),
@@ -702,65 +741,209 @@ class _KuriAuctionScreenState extends ConsumerState<KuriAuctionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                formatMonthKey(auction.month),
-                style: TextStyle(
-                    color: c.text, fontWeight: FontWeight.w600, fontSize: 14),
-              ),
-              const Spacer(),
-              StatusBadge(label: l10n.auctionClosed, color: c.textDim),
-            ],
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: Row(
+              children: [
+                Text(
+                  formatMonthKey(auction.month),
+                  style: TextStyle(color: c.text, fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                const Spacer(),
+                StatusBadge(label: l10n.auctionClosed, color: c.textDim),
+              ],
+            ),
           ),
           if (winner != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.emoji_events, color: c.warn, size: 16),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    '${l10n.winner}: ${winner.name}',
-                    style: TextStyle(color: c.text, fontSize: 13),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Row(
+                children: [
+                  Icon(Icons.emoji_events, color: c.warn, size: 16),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${l10n.winner}: ${winner.name}',
+                      style: TextStyle(color: c.text, fontSize: 13),
+                    ),
                   ),
-                ),
-                if (widget.currentUserId == kuri.createdBy)
+                  if (isMoopan)
+                    TextButton.icon(
+                      onPressed: () => _confirmReopen(context, l10n, auction),
+                      icon: Icon(Icons.lock_open_outlined, size: 14, color: c.warn),
+                      label: Text(l10n.reopenAuction,
+                          style: TextStyle(fontSize: 12, color: c.warn)),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _InfoRow(
+                      label: l10n.prizeAmount,
+                      value: '₹${auction.prizeAmount?.toInt() ?? 0}',
+                      c: c,
+                      compact: true,
+                    ),
+                  ),
+                  Expanded(
+                    child: _InfoRow(
+                      label: l10n.dividendPerMember,
+                      value: '₹${auction.dividendPerMember?.toInt() ?? 0}',
+                      c: c,
+                      compact: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          // Unpaid members (Moopan only) — admin can still record payment
+          if (isMoopan && unpaidMembers.isNotEmpty) ...[
+            Divider(color: c.border, height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: c.warn, size: 14),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Unpaid members — record payment to allow next auction',
+                    style: TextStyle(color: c.warn, fontSize: 11, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+            ...unpaidMembers.map((member) => Padding(
+              padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
+              child: Row(
+                children: [
+                  AvatarWidget(name: member.name, size: 24),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(member.name, style: TextStyle(color: c.text, fontSize: 13)),
+                  ),
                   TextButton.icon(
-                    onPressed: () => _confirmReopen(context, l10n, auction),
-                    icon: Icon(Icons.lock_open_outlined, size: 14, color: c.warn),
-                    label: Text(l10n.reopenAuction,
-                        style: TextStyle(fontSize: 12, color: c.warn)),
+                    onPressed: () => showAppBottomSheet(
+                      context,
+                      _AuctionProofSheet(
+                        kuri: kuri,
+                        member: member,
+                        month: auction.month,
+                        adminId: widget.currentUserId,
+                        onDone: () async {
+                          final fresh = await dataService.getData();
+                          if (mounted) ref.read(appDataProvider.notifier).updateState(fresh);
+                        },
+                      ),
+                    ),
+                    icon: Icon(Icons.upload_outlined, size: 14, color: c.primary),
+                    label: Text(l10n.markAsPaid, style: TextStyle(fontSize: 12, color: c.primary)),
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
-              ],
-            ),
+                ],
+              ),
+            )),
             const SizedBox(height: 4),
-            Row(
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWinningsSummary(
+    BuildContext context,
+    AppColors c,
+    AppL10n l10n,
+    AppData data,
+    KuriPlan kuri,
+    List<KuriAuction> closedAuctions,
+  ) {
+    final totalPrize = closedAuctions.fold<double>(0, (sum, a) => sum + (a.prizeAmount ?? 0));
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: c.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.bar_chart, color: c.primary, size: 16),
+              const SizedBox(width: 8),
+              Text('Auction Winnings',
+                  style: TextStyle(color: c.text, fontWeight: FontWeight.w700, fontSize: 14)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: c.primaryLight,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
               children: [
-                Expanded(
-                  child: _InfoRow(
-                    label: l10n.prizeAmount,
-                    value: '₹${auction.prizeAmount?.toInt() ?? 0}',
-                    c: c,
-                    compact: true,
-                  ),
-                ),
-                Expanded(
-                  child: _InfoRow(
-                    label: l10n.dividendPerMember,
-                    value: '₹${auction.dividendPerMember?.toInt() ?? 0}',
-                    c: c,
-                    compact: true,
-                  ),
-                ),
+                Text('Total distributed',
+                    style: TextStyle(color: c.primary, fontSize: 13)),
+                const Spacer(),
+                Text('₹${totalPrize.toInt()}',
+                    style: TextStyle(color: c.primary, fontWeight: FontWeight.w700, fontSize: 15)),
               ],
             ),
-          ],
+          ),
+          const SizedBox(height: 10),
+          ...closedAuctions.map((auction) {
+            final winner = auction.winnerId != null
+                ? data.users.firstWhere(
+                    (u) => u.id == auction.winnerId,
+                    orElse: () => AppUser(id: auction.winnerId!, name: auction.winnerId!, email: ''),
+                  )
+                : null;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Text(
+                    formatMonthKey(auction.month),
+                    style: TextStyle(color: c.textMuted, fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(width: 8),
+                  if (winner != null) ...[
+                    AvatarWidget(name: winner.name, size: 20),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(winner.name,
+                          style: TextStyle(color: c.text, fontSize: 13),
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ] else
+                    const Expanded(child: SizedBox()),
+                  Text(
+                    '₹${auction.prizeAmount?.toInt() ?? 0}',
+                    style: TextStyle(color: c.primary, fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -1374,6 +1557,156 @@ class _AdminBidSheetState extends ConsumerState<_AdminBidSheet> {
                         color: c.primaryFg, strokeWidth: 2),
                   )
                 : Text(l10n.placeBid),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+// ─── _AuctionProofSheet — record payment for unpaid member after auction close ─
+
+class _AuctionProofSheet extends ConsumerStatefulWidget {
+  final KuriPlan kuri;
+  final AppUser member;
+  final String month;
+  final String adminId;
+  final VoidCallback onDone;
+
+  const _AuctionProofSheet({
+    required this.kuri,
+    required this.member,
+    required this.month,
+    required this.adminId,
+    required this.onDone,
+  });
+
+  @override
+  ConsumerState<_AuctionProofSheet> createState() => _AuctionProofSheetState();
+}
+
+class _AuctionProofSheetState extends ConsumerState<_AuctionProofSheet> {
+  final _txnCtrl = TextEditingController();
+  String? _receiptBase64;
+  String? _receiptFileName;
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _txnCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickReceipt() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.bytes != null) {
+          setState(() {
+            _receiptBase64 = DataService.encodeImageToBase64(file.bytes!, file.name);
+            _receiptFileName = file.name;
+            _error = null;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    }
+  }
+
+  Future<void> _submit() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      await dataService.adminSubmitPayment(
+        kuriId: widget.kuri.id,
+        memberId: widget.member.id,
+        adminId: widget.adminId,
+        month: widget.month,
+        amount: widget.kuri.contributionAmount,
+        transactionId: _txnCtrl.text.trim(),
+        receiptBase64: _receiptBase64 ?? '',
+        receiptFileName: _receiptFileName ?? '',
+      );
+      widget.onDone();
+      if (mounted) {
+        Navigator.pop(context);
+        final l10n = AppL10n(ref.read(localeProvider));
+        showSuccess(context, l10n.paymentRecorded);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l10n = AppL10n(ref.watch(localeProvider));
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.uploadProofForMember,
+                        style: TextStyle(color: c.text, fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      '${widget.member.name} · ${formatMonthKey(widget.month)}',
+                      style: TextStyle(color: c.textMuted, fontSize: 13),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Member can participate in the next auction once payment is recorded.',
+                      style: TextStyle(color: c.primary, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.close, color: c.textMuted),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _txnCtrl,
+            style: TextStyle(color: c.text),
+            decoration: InputDecoration(labelText: l10n.transactionIdOptional),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            icon: Icon(_receiptBase64 != null ? Icons.check_circle : Icons.image_outlined),
+            label: Text(_receiptBase64 != null ? l10n.receiptUploaded : l10n.receiptOptional),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _receiptBase64 != null ? c.green : c.primary,
+              side: BorderSide(color: _receiptBase64 != null ? c.green : c.border),
+            ),
+            onPressed: _pickReceipt,
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_error!, style: TextStyle(color: c.danger, fontSize: 13)),
+            ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _loading ? null : _submit,
+            style: ElevatedButton.styleFrom(backgroundColor: c.green),
+            child: _loading
+                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : Text(l10n.markAsPaid, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
