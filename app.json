@@ -13,7 +13,12 @@
     },
     "android": {},
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "backgroundColor": "#020817",
+      "themeColor": "#020817"
+    },
+    "experiments": {
+      "baseUrl": "/committee-app"
     }
   }
 }

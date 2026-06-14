@@ -1,0 +1,38 @@
+name: Deploy to GitHub Pages (React Native - DISABLED)
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Type YES to force RN deploy'
+        required: true
+        default: 'NO'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build web app
+        run: npx expo export --platform web
+
+      - name: Patch HTML for iOS PWA
+        run: node scripts/patch-html.js
+
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
